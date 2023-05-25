@@ -1,0 +1,15 @@
+used github for cJSON: https://github.com/DaveGamble/cJSON
+used github for MQTT-C: https://github.com/LiamBindle/MQTT-C
+
+https://github.com/eclipse/paho.mqtt.c/blob/master/src/samples/MQTTClient_publish.c
+
+compile with: g++ -o test *.cpp *.c
+run with ./test
+
+#TODO sendmsg function
+
+
+mosquitto -c /etc/mosquitto/mosquitto.conf -p 1883
+
+mosquitto_pub -h 192.168.2.103 -t ReceiveVoltStatus/1 -m "2"
+ mosquitto_sub -h 127.0.0.1 -t sync -V mqttv31 -q 2
