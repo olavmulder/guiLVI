@@ -55,15 +55,13 @@ extern volatile uint64_t syncCounter;
 
 extern volatile bool canvasInitDone; //gui init
 
-extern bool inited;
-extern volatile bool updateFlag;
-
 //int Communication(TypeConnection t);
 
 int _cJSON_ErrorHandling(cJSON *obj);
 
 int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, double temp,
-                    bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
+                            bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
+
 
 int SendCopyData();
 int AskCopyData();
@@ -80,5 +78,7 @@ void PrintList(FILE*);
 #endif
 
 extern int SendSync(const char *msg, size_t len);
+
+extern int FindID(int id);
 
 #endif

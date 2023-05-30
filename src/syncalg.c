@@ -6,7 +6,6 @@
 #define SYNC_IP_ADDR "127.0.0.1"
 
 uint8_t clientId = 0;
-bool inited = false;
 
 
 uint8_t syncMsg[BUF_RX_SIZE];
@@ -48,22 +47,22 @@ int _HandleSync(cJSON* objPtr, int id)
 
     bool uVolt = false, uTemp = false, uClose = false, uActive = false;
 
-    if(cJSON_IsNumber(jsonVoltageState) && !cJSON_IsNull(jsonVoltageState))
+    if(cJSON_IsNumber(jsonVoltageState))
     { 
         newData.voltageState = (int8_t)jsonVoltageState->valueint;
         uVolt = true;
     }
-    if(cJSON_IsNumber(jsonTemp) && !cJSON_IsNull(jsonTemp)) 
+    if(cJSON_IsNumber(jsonTemp)) 
     {
         newData.temp = jsonTemp->valuedouble;
         uTemp = true;
     }
-    if(cJSON_IsNumber(jsonCloseState) && !cJSON_IsNull(jsonCloseState)) 
+    if(cJSON_IsNumber(jsonCloseState) ) 
     {
         newData.closeState = (int8_t)jsonCloseState->valueint;
         uClose = true;
     }
-    if(cJSON_IsBool(jsonActive) && !cJSON_IsNull(jsonActive)) 
+    if(cJSON_IsBool(jsonActive)) 
     {
         newData.active = jsonActive->valueint;
         uActive = true;
@@ -107,19 +106,21 @@ int _ReceiveChangeLog(const char* const msg)
         //check if receive copy is send
         else if(jsonId->valueint == RECEIVE_COPY_ID)
         {
+            printf("receive copoy data\n");
+            fflush(stdout);
             cJSON* tem;
             unsigned int i = 0;
             bool go = false, temp =false;
             //check if all nodes are init in the gtk dropdown callback
             //otherwise the send copy data will be overwritten
-            do{
+            /*do{
                 for(uint8_t i=0;i<AMOUNT_NODES;i++){
                     if(firstTimeCallBack[i] == true)temp = true;
                     else temp = false;
                 }
                 if(temp == true)
                     go = true;
-            }while(!go);
+            }while(!go);*/
             fflush(stdout);
             cJSON*jsonArray = cJSON_GetObjectItemCaseSensitive(objPtr, nameArray);
             //update syncounter variable
@@ -188,7 +189,7 @@ int ReadSyncCallBack(const char* msg, size_t len)
 {
         //char buf[len+1];
         //snprintf(buf, len+1, "%s", msg);
-        printf("%s; %s", __func__, msg);
+        //printf("%s; %s", __func__, msg);
         int res = _ReceiveChangeLog(msg);
         switch(res){
             case 0:
@@ -243,7 +244,6 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
         
         if(cJSON_AddNumberToObject(changeMsg, nameID, id) == NULL)
         {
-            
             cJSON_Delete(changeMsg);
             return -1;
         }
@@ -252,13 +252,14 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
             cJSON_Delete(changeMsg);
             return -1;
         }
-        data.id = id;
         if(cJSON_AddNumberToObject(changeMsg, nameCounter, syncCounter) == NULL)
         {
             
             cJSON_Delete(changeMsg);
             return -1;
         }
+
+        data.id = id;
         if(uVolt)
         {
             data.voltageState = voltageState;
@@ -297,8 +298,12 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
                 return -1;
             }
         }
-        //printf("make changelog id %d & %d",id, data.id);
-        _ChangeData(&data, uVolt, uClose, uTemp, uActive);
+
+        if(_ChangeData(&data, uVolt, uClose, uTemp, uActive) < 0)
+        {
+            printf("%s: change data -1\n", __func__);
+            fflush(stdout);
+        }
 
         char* str = cJSON_Print(changeMsg);
         if(str == NULL){
@@ -306,9 +311,11 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
             return -1;
         }
         //actually send sync msg:
-        SendSync(str, strlen(str));
+        int res = SendSync(str, strlen(str));
+        //printf("%s;res sendSync: %d\n", __func__, res);
+        //fflush(stdout);
         free(str);
-        return 0;
+        return res;
     }
     else{
         return -1;
@@ -330,11 +337,39 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
 int _ChangeData(DataList *data, bool uVolt, bool uClose,
                         bool uTemp, bool uActive)
 {
-    //printf("change data id: %d, voltage: %d\n", id, voltageState);
     unsigned int id = data->id;
+    //change the status to black only when id in monotirong_head list is not there and
+    //isAlive = false
+    //printf("%s...id: %d\n", __func__, id);
+    if(monitoring_head != NULL)
+    {
+        //printf("%s head is init\n", __func__);
+
+        if(monitoring_head->lenChildArr > 0){//is inited
+            int index = FindID(id);
+            //printf("%s index = %d\n", __func__, index);
+            if(index >= 0)//has found
+            {
+                //printf("%s uClode = %d, clsoeState == %d\n", __func__, uClose, data->closeState);
+                //if incomfing data is closestate Err 
+                if(uClose && data->closeState == -1)
+                {
+                    //printf("%s is Alive: %d\n", __func__, monitoring_head->childArr[index]->isAlive );
+
+                    //if this device is alive do not change close state
+                    if(monitoring_head->childArr[index]->isAlive == true)
+                    {
+                        uClose = false;
+                    }
+                }
+            } 
+
+        }
+    }
     //printf("changedata id %d\n", id);
     if(id > LIST_SIZE ){
         fprintf(stderr, "id: %d;  isn't valid\n", data->id);
+        fflush(stdout);
         return -1;
     }else{
         list[id].id = id;
@@ -342,11 +377,13 @@ int _ChangeData(DataList *data, bool uVolt, bool uClose,
     if(uVolt || uClose || uTemp || uActive){
         if(uVolt)
         {
-            list[id].voltageState = data->voltageState;
+            if(data->voltageState == 0 || data->voltageState == 1)
+                list[id].voltageState = data->voltageState;
         }
         if(uClose)
         {
-            list[id].closeState = data->closeState;
+            if(data->closeState >= -1 && data->closeState <= 2)
+                list[id].closeState = data->closeState;
         }
         if(uTemp)
         {
@@ -360,6 +397,7 @@ int _ChangeData(DataList *data, bool uVolt, bool uClose,
         fprintf(stderr, "cant't change data because all variables are false\n");
         return -1;
     }
+    //updateFlag = 1;
     return 0;
 }
 
@@ -367,7 +405,7 @@ int _ChangeData(DataList *data, bool uVolt, bool uClose,
 void PrintList(FILE* pFile)
 {
 
-    //fprintf(file,"-------------------");
+    fprintf(pFile,"-------------------");
     //printf("syncCounter: %ld;\n", syncCounter);
     for(uint32_t i = 0; i < 5;i++)
     {
@@ -376,7 +414,7 @@ void PrintList(FILE* pFile)
             list[i].id, list[i].closeState, list[i].temp, list[i].voltageState);
     }
     fprintf(pFile,"\n\n");
-    //fprintf(file,"-------------------");
+    fprintf(pFile,"-------------------");
 
 }
 
@@ -467,8 +505,8 @@ int SendCopyData()
         return -1;
     }
     
-    SendSync(str, strlen(str));
-    printf("send copy data\n");
+    int res = SendSync(str, strlen(str));
+    //printf("send copy data: %d\n", res);
     return 0;
 }
 /**
@@ -522,7 +560,7 @@ int InitMsg()
         fprintf(stderr, "failed to print changeMsg\n");
         return -1;
     }
-    printf("%s; send init msg: %s", __func__, str);
+    //printf("%s; send init msg: %s", __func__, str);
     SendSync(str, strlen(str));
     free(str);
     return 0;

@@ -59,17 +59,15 @@ void message_handler(
         size_t len;
         uint8_t*data;
         coap_get_data(received, &len, (const uint8_t**)&data);
-        printf("data in %s\n", (char*)data);
+        //printf("data in %s\n", (char*)data);
         char retDataString[1000];
         //coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
         mesh_data r;
         HandleIncomingData(&r, (char*)data, len+1);
-        printf("%s: r.cmd = %d\n", __func__, r.cmd);
+        //printf("%s: r.cmd = %d\n", __func__, r.cmd);
 
-        //only make return msg when cmd == init or to_client
-        if(     r.cmd == CMD_INIT_INVALID       || 
-                r.cmd == CMD_INIT_VALID         || 
-                r.cmd == CMD_TO_CLIENT)
+        //only make return msg when cmd == init , hearbeat or to_client
+        if(is_CMD_a_Return_Msg(r.cmd))
         {
 
                 if(_MakeMsgLvi(&r, retDataString, sizeof(retDataString))  < 0)

@@ -1,0 +1,16 @@
+build/*
+.vscode/
+img/*
+munit/*
+client
+
+*.txt
+main
+
+#test programs
+sync_client.c
+sync_server.c
+server
+client
+if.cpp
+if

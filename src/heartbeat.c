@@ -81,14 +81,14 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
       monitoring_head = AddNodeToStrip(monitoring_head, childsStrip->childArr[i]);
         
     //if not empty search node in strip
-   printf("%s; len = %d\n", __func__, monitoring_head->lenChildArr);
+   //printf("%s; len = %d\n", __func__, monitoring_head->lenChildArr);
    for(uint8_t i = 0;i < monitoring_head->lenChildArr; i++)
    {
       //if found restart timer and return
       if(monitoring_head->childArr[i]->id == id)
       {
-         printf("id %d ", monitoring_head->childArr[i]->id);
-         printf("timer addr %p ", monitoring_head->childArr[i]);
+        // printf("id %d ", monitoring_head->childArr[i]->id);
+        // printf("timer addr %p ", monitoring_head->childArr[i]);
 
          RestartTimer(monitoring_head->childArr[i]->timerid);
          SetAlive(monitoring_head->childArr[i], true);

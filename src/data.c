@@ -1,7 +1,6 @@
 #include "../include/data.h"
 
 //cjson handling
-
 const char *nameVoltageState = "voltageState";
 const char *nameCloseState = "closeState";
 const char *nameTemp = "temp";
@@ -27,11 +26,11 @@ DataList *dataListPtr = &list[0];
  * 
  * @param ret 
  */
-bool _CheckIDExist(mesh_data *ret)
+int _CheckIDExist(mesh_data *ret)
 {
    //check if id is already taken
    if(ret->id < 0 || ret->id > sizeof(initList)/sizeof(init_t))
-      return;
+      return -1;
    if(initList[ret->id].init == true)
    {
       //if so->check if incoming mac & ip is same
@@ -40,11 +39,11 @@ bool _CheckIDExist(mesh_data *ret)
       {
          //if so it is a valid init
          //ret->cmd = CMD_INIT_VALID;
-         return true;
+         return 1;
       }
       else
       {
-         return false;
+         return 0;
          //ret->cmd = CMD_INIT_INVALID;
       }
    }else{//if id is not init = it is a new one then set mac + ip
@@ -53,7 +52,7 @@ bool _CheckIDExist(mesh_data *ret)
       strcpy(initList[ret->id].ip, ret->ip);
       initList[ret->id].init = true;
       //ret->cmd = CMD_INIT_VALID;
-      return true;
+      return 1;
    }
    
 
@@ -69,7 +68,7 @@ bool _CheckIDExist(mesh_data *ret)
  */
 int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
 {
-   int res;
+   int res = -1;
    cJSON * jsonCMD = NULL;
    cJSON * jsonID = NULL;
    cJSON *objPtr = cJSON_ParseWithLength(buffer, len);
@@ -90,16 +89,18 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
          //lvi commands
          case CMD_INIT_SEND:
             res = HandleClientData(ret, objPtr);
-            if(_CheckIDExist(ret))ret->cmd = CMD_INIT_VALID;
+            if(_CheckIDExist(ret) == 1)ret->cmd = CMD_INIT_VALID;
             else ret->cmd = CMD_INIT_INVALID;
             //printf("HandleClientData form init send -> %d\n", res);
             break;
          case CMD_TO_SERVER:
             res = HandleClientData(ret, objPtr);
-            ret->cmd = CMD_TO_CLIENT;
-            ret->closeState = list[ret->id].closeState;
-            ret->voltageState = list[ret->id].voltageState;
-            //printf("HandleClientData -> %d\n", res);
+            if(res == 0){
+               ret->cmd = CMD_TO_CLIENT;
+               ret->closeState = list[ret->id].closeState;
+               ret->voltageState = list[ret->id].voltageState;
+            }
+            printf("HandleClientData -> %d\n", res);
 
             break;
          case CMD_HEARTBEAT:
@@ -107,12 +108,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
             res = HandleHeartBeat(ret, objPtr);
             printf("%s, cmd%d\n", __func__, ret->cmd);
             //on lvi there is check on ip so set it.
-            strcpy(ret->ip, ownAddr_);
-            if(strcmp(ownAddr_, "192.168.2.103") == 0)
-               ret->id = 255;//test a server id
-            else 
-               ret->id = 254;
-            res = 0;
             break;
          case CMD_SEND_ERR:
             jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
@@ -123,16 +118,21 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
             }
             break;
          //sync commands
-         case CMD_SYNC_INIT:
+         case CMD_SYNC_INIT://when sync init send copy
             //printf("%s; received CMD_SYNC_INIT\n", __func__);
             return 1;
             break;
          case CMD_SYNC:
+         case ASK_COPY_ID:
+         case RECEIVE_COPY_ID:
             res = ReadSyncCallBack(buffer, strlen(buffer));
             ret->cmd = CMD_SYNC;
             //printf("ReadSyncCallback -> %d\n", res);
             break;
          case CMD_SEND_BROADCAST:
+            res = 0;
+            break;
+         default:
             break;
       }      
    }
@@ -143,7 +143,7 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
 
 int _MakeMsgLvi(mesh_data *ret, char*msgStr, size_t len)
 {
-      printf("%s;%d cmd\n", __func__, ret->cmd);
+      //printf("%s;%d cmd\n", __func__, ret->cmd);
       //ip:%s, mac: %s, id: %d, port %d, id %d\n", ret->cmd , ret->ip, ret->mac, 
       //   ret->port,  ret->id
       cJSON *obj = cJSON_CreateObject();
@@ -227,11 +227,11 @@ mesh_data HandleSendErr(int id)
 }
 int HandleClientData(mesh_data *ret, cJSON* objPtr)
 {
-   cJSON* jsonMAC = cJSON_GetObjectItemCaseSensitive(objPtr, "mac");
-   cJSON* jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, "id");
-   cJSON* jsonIP = cJSON_GetObjectItemCaseSensitive(objPtr, "ip");
-   cJSON* jsonPort = cJSON_GetObjectItemCaseSensitive(objPtr, "port");
-   cJSON* jsonTemp = cJSON_GetObjectItemCaseSensitive(objPtr, "temp");
+   cJSON* jsonMAC = cJSON_GetObjectItemCaseSensitive(objPtr, nameMAC);
+   cJSON* jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
+   cJSON* jsonIP = cJSON_GetObjectItemCaseSensitive(objPtr, nameIP);
+   cJSON* jsonPort = cJSON_GetObjectItemCaseSensitive(objPtr, namePort);
+   cJSON* jsonTemp = cJSON_GetObjectItemCaseSensitive(objPtr, nameTemp);
           
    if(!
       (cJSON_IsNumber(jsonID) &&
@@ -240,7 +240,8 @@ int HandleClientData(mesh_data *ret, cJSON* objPtr)
       cJSON_IsNumber(jsonPort) &&
       cJSON_IsNumber(jsonTemp))
    ){
-      printf("is error\n");
+      printf("%s:not everything is in json\n", __func__);
+      fflush(stdout);
       ret->cmd = CMD_ERROR;
       return -1;
    }  
@@ -256,10 +257,11 @@ int HandleClientData(mesh_data *ret, cJSON* objPtr)
       if(list[ret->id].temp != jsonTemp->valuedouble)
       {
          if(MakeChangeLog(ret->id, 0,0,jsonTemp->valuedouble, false, 
-                  false, false,true,false ) != 0)
+                  false, false,true,false ) <= 0)
          {
             fprintf(stderr, "Error in MakechangeLog\n");
-            return -1;
+            fflush(stderr);
+            //return -1;
          }
       }
    }      
@@ -279,21 +281,26 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
    //handle heartbeat...
    ret->cmd = CMD_HEARTBEAT;
    cJSON *jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
-   cJSON *jsonMAC = cJSON_GetObjectItemCaseSensitive(objPtr, nameMAC);
    
-   if(! (cJSON_IsNumber(jsonID) && cJSON_IsString(jsonMAC) ) )
+   if(! (cJSON_IsNumber(jsonID)) )
    {
       printf("%s:id is null", __func__);
+      return -1;
    }else{
       cJSON *node = NULL;
       cJSON *data = NULL;
 
+      //setup return values
       ret->id  = jsonID->valueint;
-      snprintf(ret->mac,20, "%s", jsonMAC->valuestring);
-      snprintf(ret->ip,20, "%s", "0");
+      snprintf(ret->mac,20, "%s", "00");
+      snprintf(ret->ip,20, "%s", ownAddr_);
+      if(strcmp(ownAddr_, "192.168.2.103") == 0)
+         ret->id = 255;//test a server id
+      else 
+         ret->id = 254;
       ret->port = 0;
 
-      printf("%s: call heartbeat handler: id:%d\n", __func__, jsonID->valueint);
+      //printf("%s: call heartbeat handler: id:%d\n", __func__, jsonID->valueint);
       fflush(stdout);
       strip_t *child = (strip_t*)malloc(sizeof(strip_t));
       child->childArr = (Node**)malloc(sizeof(Node*));
@@ -302,9 +309,21 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
       
       //data(id, mac, ip, port) of sender
       child->childArr[0]->id = jsonID->valueint;
-      snprintf(child->childArr[0]->ip_wifi, 20, "%s", "temp");     
+      cJSON *jsonIP = cJSON_GetObjectItemCaseSensitive(objPtr, nameIP);
+      cJSON *jsonMAC = cJSON_GetObjectItemCaseSensitive(objPtr, nameMAC);
+
+      if(cJSON_IsString(jsonIP))
+         snprintf(child->childArr[0]->ip_wifi, 20, "%s", jsonIP->valuestring);
+      else
+         snprintf(child->childArr[0]->ip_wifi, 20, "not there");
+          
+      //discard
       child->childArr[0]->port = 0;
-      snprintf(child->childArr[0]->mac_wifi, 20, "%s", jsonMAC->valuestring);
+      if(cJSON_IsString(jsonMAC))
+         snprintf(child->childArr[0]->mac_wifi, 20, "%s", jsonMAC->valuestring);
+      else
+         snprintf(child->childArr[0]->mac_wifi, 20, "not there");
+      
       child->childArr[0]->isAlive = true;
 
    
@@ -337,7 +356,7 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
             child->lenChildArr++;
          }
       }
-      printf("%s: id:%d, child->len %d\n", __func__, child->childArr[0]->id, child->lenChildArr);
+      //printf("%s: id:%d, child->len %d\n", __func__, child->childArr[0]->id, child->lenChildArr);
       fflush(stdout);
       HeartbeatHandler(jsonID->valueint, child);
       //free malloced strip_t & childArr from HandleCMD function

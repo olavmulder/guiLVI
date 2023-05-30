@@ -42,7 +42,7 @@
 //after that set client on a specific bind
 //after that client & server test...
 volatile bool hasChanged;
-
+#define C
 struct clientArg
 {
     char ownAddr[20];
@@ -50,12 +50,11 @@ struct clientArg
 };
 void *ClientTask(void* vargp)
 { 
-    //#ifdef C
+    #ifdef C
     struct clientArg a = *(struct clientArg*)vargp;
     //a.ownAddr, a.serverAddr
-    
-    //ClientLoop(a.ownAddr, a.serverAddr );  
-    //#endif 
+    ClientLoop(a.ownAddr, a.serverAddr );  
+    #endif 
     return NULL;
 }
 
@@ -75,7 +74,7 @@ void *LviTaskCOAP(void *vargp)
     //192.168.178.25
     //ServerLoopTCP_IP();
     
-    //int res = ServerLoop((char*)vargp, "5683", "server");
+    int res = ServerLoop((char*)vargp, "5683", "server");
     //printf("res coap %d", res);
     fflush(stdout);
     return NULL;
@@ -99,10 +98,10 @@ int main(int argc, char* argv[])
     pthread_create(&guiTask, NULL, gui, argv[1]);
     pthread_create(&server, NULL, ServerTask, c.ownAddr);
     pthread_create(&client, NULL, ClientTask,(void*)&c);
-    //pthread_create(&coap, NULL, LviTaskCOAP, c.ownAddr);
+    pthread_create(&coap, NULL, LviTaskCOAP, c.ownAddr);
    
-    pthread_join(client, NULL);
+   // pthread_join(client, NULL);
     pthread_join(guiTask, NULL);
     pthread_join(server, NULL);
-    //pthread_join(coap, NULL);
+    pthread_join(coap, NULL);
 }
