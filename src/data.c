@@ -54,8 +54,6 @@ int _CheckIDExist(mesh_data *ret)
       //ret->cmd = CMD_INIT_VALID;
       return 1;
    }
-   
-
 }
 
 /**
@@ -71,7 +69,7 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
    int res = -1;
    cJSON * jsonCMD = NULL;
    cJSON * jsonID = NULL;
-   cJSON *objPtr = cJSON_ParseWithLength(buffer, len);
+   cJSON *objPtr = cJSON_Parse(buffer);
    if(objPtr == NULL)
    {
       printf("%s objptr == NULL\n", __func__);
@@ -83,7 +81,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
    {
       int cmd = jsonCMD->valueint;
       //run function demending on cmd 
-      //printf("%s, cmd = %d\n", __func__, cmd);
       switch(cmd)
       {
          //lvi commands
@@ -91,7 +88,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
             res = HandleClientData(ret, objPtr);
             if(_CheckIDExist(ret) == 1)ret->cmd = CMD_INIT_VALID;
             else ret->cmd = CMD_INIT_INVALID;
-            //printf("HandleClientData form init send -> %d\n", res);
             break;
          case CMD_TO_SERVER:
             res = HandleClientData(ret, objPtr);
@@ -100,14 +96,10 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
                ret->closeState = list[ret->id].closeState;
                ret->voltageState = list[ret->id].voltageState;
             }
-            printf("HandleClientData -> %d\n", res);
-
             break;
          case CMD_HEARTBEAT:
             ret->cmd = CMD_HEARTBEAT;
             res = HandleHeartBeat(ret, objPtr);
-            printf("%s, cmd%d\n", __func__, ret->cmd);
-            //on lvi there is check on ip so set it.
             break;
          case CMD_SEND_ERR:
             jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
@@ -119,7 +111,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
             break;
          //sync commands
          case CMD_SYNC_INIT://when sync init send copy
-            //printf("%s; received CMD_SYNC_INIT\n", __func__);
             return 1;
             break;
          case CMD_SYNC:
@@ -127,7 +118,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
          case RECEIVE_COPY_ID:
             res = ReadSyncCallBack(buffer, strlen(buffer));
             ret->cmd = CMD_SYNC;
-            //printf("ReadSyncCallback -> %d\n", res);
             break;
          case CMD_SEND_BROADCAST:
             res = 0;
@@ -143,9 +133,6 @@ int HandleIncomingData(mesh_data *ret, char* buffer, size_t len)
 
 int _MakeMsgLvi(mesh_data *ret, char*msgStr, size_t len)
 {
-      //printf("%s;%d cmd\n", __func__, ret->cmd);
-      //ip:%s, mac: %s, id: %d, port %d, id %d\n", ret->cmd , ret->ip, ret->mac, 
-      //   ret->port,  ret->id
       cJSON *obj = cJSON_CreateObject();
       if (obj == NULL)
       {
@@ -209,18 +196,16 @@ int _MakeMsgLvi(mesh_data *ret, char*msgStr, size_t len)
 
 }
 
-
 mesh_data HandleSendErr(int id)
 {
    mesh_data ret;
    //if current general state == Err,  make changelog to send
    if(id < (int)(sizeof(list)/sizeof(DataList))){
-            if(MakeChangeLog(id, 0,-1,0, false, false, 
-                     true,false,false) != 0)
-            {
-               fprintf(stderr, "Error in MakechangeLog\n");
-            }
-            //printf("send err on list[%d].curStatte: %d\n", id, list[id].closeState);
+      if(MakeChangeLog(id, 0,-1,0, false, false, 
+               true,false,false) != 0)
+      {
+         fprintf(stderr, "Error in MakechangeLog\n");
+      }
    }
    ret.cmd = CMD_TO_CLIENT;
    return ret;
@@ -261,7 +246,7 @@ int HandleClientData(mesh_data *ret, cJSON* objPtr)
          {
             fprintf(stderr, "Error in MakechangeLog\n");
             fflush(stderr);
-            //return -1;
+            return -1;
          }
       }
    }      
@@ -294,7 +279,7 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
       ret->id  = jsonID->valueint;
       snprintf(ret->mac,20, "%s", "00");
       snprintf(ret->ip,20, "%s", ownAddr_);
-      if(strcmp(ownAddr_, "192.168.2.103") == 0)
+      if(strcmp(ownAddr_, SERVER_IP[0]) == 0)
          ret->id = 255;//test a server id
       else 
          ret->id = 254;
@@ -356,16 +341,70 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
             child->lenChildArr++;
          }
       }
-      //printf("%s: id:%d, child->len %d\n", __func__, child->childArr[0]->id, child->lenChildArr);
-      fflush(stdout);
       HeartbeatHandler(jsonID->valueint, child);
       //free malloced strip_t & childArr from HandleCMD function
-      //ESP_LOGI(TAG_DATA, "%s, lenchild %d", __func__, child->lenChildArr);
       for(uint8_t i = 0; i < child->lenChildArr;i++)
          free(child->childArr[i]);
       free(child->childArr);
       free(child);
-      //ESP_LOGI(TAG_DATA, "%s free done", __func__); 
    }
    return 0;
+}
+
+/**
+ * @brief make string in cjson format to send as a hearbeat msg
+ * add id, cmd, mac to json, and array with all his child, which contains
+ * mac, ip, port, id & isAlive
+ * @param msg msg if a buffer to set result string
+ * @param dataStrip strip of device contains all the data of his childs
+ * @return int 0 on succss, -1 on error
+ */
+
+int MakeMsgStringHeartbeat(char* msg, strip_t* dataStrip)
+{
+   int idName;
+   if(strcmp(ownAddr_, SERVER_IP[0]) == 0)
+      idName = 255;
+   else 
+      idName = 254;
+   cJSON *obj = cJSON_CreateObject();
+   cJSON *data;
+   cJSON *node;
+   cJSON *id;
+   cJSON *ip;
+   cJSON *mac;
+   cJSON *port;
+   cJSON *isAlive;
+
+   if (obj == NULL)
+   {
+      goto end;
+   }
+   if (cJSON_AddNumberToObject(obj, nameID, idName) == NULL)
+   {
+      goto end;
+   }
+   if (cJSON_AddNumberToObject(obj, nameCMD, CMD_HEARTBEAT) == NULL)
+   {
+      goto end;
+   }
+   if (cJSON_AddStringToObject(obj, nameIP, ownAddr_) == NULL)
+   {
+      goto end;
+   }
+   char* string = cJSON_Print(obj);
+   if(string == NULL)
+   {
+      fprintf(stderr, "Failed to print obj\n");
+   }else
+   {
+      if(strlen(string) < 2000)
+         snprintf((char*)msg, strlen(string)+1, "%s", string);
+   }
+   cJSON_Delete(obj);
+   return 0;
+   end:
+      if(obj != NULL)
+         cJSON_Delete(obj);
+      return -1;
 }

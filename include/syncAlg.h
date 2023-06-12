@@ -20,14 +20,7 @@
 #define ASK_COPY_ID 2000
 #define RECEIVE_COPY_ID 2001
 
-typedef enum __TypeChange
-{
-    CHANGE = 0, ADD, REMOVE
-}TypeChange;
-typedef enum __TypeConnection
-{
-    TYPE_SERVER = 0, TYPE_CLIENT, TYPE_NON
-}TypeConnection;
+
 extern uint8_t clientId;
 
 extern const char *nameVoltageState;
@@ -50,12 +43,12 @@ extern volatile bool updateFlag;
 
 extern DataList list[LIST_SIZE];
 extern bool firstTimeCallBack[AMOUNT_NODES];
-extern volatile unsigned int highestID;
-extern volatile uint64_t syncCounter;
+extern unsigned int highestID;
+extern uint64_t syncCounter;
 
 extern volatile bool canvasInitDone; //gui init
+extern volatile bool isCompleted;
 
-//int Communication(TypeConnection t);
 
 int _cJSON_ErrorHandling(cJSON *obj);
 
@@ -63,12 +56,9 @@ int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, doubl
                             bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
 
 
-int SendCopyData();
+char* SendCopyData();
+int ReceiveCopyData(cJSON*, cJSON*);
 int AskCopyData();
-
-//int _MakeACKMsg(int syncCounter);
-//int _ClientInit();
-//int _ServerInit();
 int _ChangeData(DataList*, bool uVolt, bool uClose,
                 bool uTemp, bool uActive);
 int ReadSyncCallBack(const char* msg, size_t len);

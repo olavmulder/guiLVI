@@ -2,49 +2,26 @@
 const char* TAG_STRIP = "STRIP:";
 
 /**
- * @brief make new node, init it with data and return it
- * 
- * @param id 
- * @param ip 
- * @param mac 
- * @param port 
- * @param isAlive 
- * @return Node* 
- */
-//not needed anymore...
-/*Node* NewNode(int id, char* ip, char *mac, uint16_t port, bool isAlive)//data
-{
-   Node *temp = (Node*)malloc(sizeof(Node));
-   temp->id = id;
-   strcpy(temp->ip_wifi,ip);
-   strcpy(temp->mac_wifi,mac);
-   temp->port = port;
-   temp->isAlive = isAlive;
-   InitTimer(temp);
-   return temp;
-}*/
-/**
  * @brief find id in monitoring linked list
  * 
  * @param id 
  * @return int 
  */
 //PSD done
-int FindID(int id)
+int FindID(strip_t* strip, int id)
 {
     //ESP_LOGI(TAG_STRIP, "%s, id = %d", __func__, id);
-    int max = monitoring_head->lenChildArr;
+    int max = strip->lenChildArr;
     int index = 0;
-    //ESP_LOGI(TAG_STRIP, "%s, id = %d, max = %d, arr id = %d"
-        //, __func__, id, max, monitoring_head->childArr[0]->id);
-   
+    //printf("%s, id = %d, max = %d, arr id = %d\n", __func__, id, max, strip->childArr[0]->id);
+    //fflush(stdout);
     while(index < max)
     {
-      if(monitoring_head->childArr[index]->id == id)
+      if(strip->childArr[index]->id == id)
         return 0;
       index++;
     }
-   return -1;
+    return -1;
 }
 /**
  * @brief add node to node strip when it isn't there already
@@ -58,18 +35,17 @@ int FindID(int id)
 strip_t* AddNodeToStrip(strip_t* strip, Node* n)
 {
    //alloc a new child in Node r
-   // ESP_LOGI(TAG_STRIP, "%s, id = %d", __func__, n->id);
+//    printf("\n%s, id = %d %d\n", __func__, n->id, strip->lenChildArr);
     uint8_t inID = n->id;
     //only add new node if id of incoming node is not in monitoring_head
-    int res = FindID(inID);
+    int res = FindID(strip, inID);
     if(res != 0)
     {
         strip->childArr = realloc(strip->childArr, sizeof(Node*) * ++strip->lenChildArr);
         strip->childArr[strip->lenChildArr-1] = (Node*)malloc(sizeof(Node));
         memcpy(strip->childArr[strip->lenChildArr-1],n, sizeof(Node)); 
-        //strip->lenChildArr++;
-        //InitTimer(strip->childArr[strip->lenChildArr-1]);
-        //ESP_LOGI(TAG_STRIP, "%s, strip->lenChildAddr = %d", __func__, strip->lenChildArr);
+        InitTimer(strip->childArr[strip->lenChildArr-1], TimerCallback);
+        //printf("%s, strip->lenChildAddr = %d", __func__, strip->lenChildArr);
 
     }
     return strip;
@@ -84,9 +60,10 @@ void DisplayMonitoringString()
    
     for(uint8_t i = 0; i < monitoring_head->lenChildArr;i++)
     {
-        //ESP_LOGI(TAG_STRIP, "id:%d, isAlive: %d, ip:%s\n", monitoring_head->childArr[i]->id,
-        //        monitoring_head->childArr[i]->isAlive, monitoring_head->childArr[i]->ip_wifi);
+        printf("id:%d, isAlive: %d, ip:%s\n", monitoring_head->childArr[i]->id,
+               monitoring_head->childArr[i]->isAlive, monitoring_head->childArr[i]->ip_wifi);
     }
+    printf("\n");
 }
 /*void FindAllChildren(Node *node) {
     //printf("Children of node %d:\n", node->id);

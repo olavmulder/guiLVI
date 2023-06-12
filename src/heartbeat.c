@@ -2,6 +2,8 @@
 
 #define TIMER_INTERVAL_SEC 10
 #define TIMER_INTERVAL_NSEC 0
+#define SERVER_ID1 255
+#define SERVER_ID2 254
 
 strip_t *monitoring_head;
 
@@ -9,6 +11,15 @@ void TimerHandler(int sig, siginfo_t *si, void *uc)
 {
    Node* data = (Node*)(si->si_value.sival_ptr);
    printf("timer expired of id:%d\n",data->id);
+   //increment time out before closing the socket
+   data->timeouts ++;
+   if( (data->id == SERVER_ID1 || data->id == SERVER_ID2) && data->timeouts >= 3)
+   {
+      //CloseSyncSocket();
+      printf("closed socket sync client\n");
+      fflush(stdout);
+      data->timeouts = 0;
+   }
    printf("timer addr %p\n", data);
    RestartTimer(data->timerid); 
    SetAlive(data, false);
@@ -40,7 +51,6 @@ void InitTimer(Node* node)
    timer_settime(node->timerid, 0, &its, NULL);
 }
 
-
 /**
  * @brief Set the Alive variable in Node struct
  * but also if not alive, set close state to -1(black)
@@ -58,7 +68,6 @@ void SetAlive(Node* node, bool isAlive)
 }
 void RestartTimer(timer_t timerid)
 {
-   printf("restart timer\n");
    struct itimerspec its;
    its.it_value.tv_sec = TIMER_INTERVAL_SEC;
    its.it_value.tv_nsec = TIMER_INTERVAL_NSEC;
@@ -81,22 +90,17 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
       monitoring_head = AddNodeToStrip(monitoring_head, childsStrip->childArr[i]);
         
     //if not empty search node in strip
-   //printf("%s; len = %d\n", __func__, monitoring_head->lenChildArr);
    for(uint8_t i = 0;i < monitoring_head->lenChildArr; i++)
    {
-      //if found restart timer and return
+      //if found, restart timer and return
       if(monitoring_head->childArr[i]->id == id)
       {
-        // printf("id %d ", monitoring_head->childArr[i]->id);
-        // printf("timer addr %p ", monitoring_head->childArr[i]);
-
          RestartTimer(monitoring_head->childArr[i]->timerid);
          SetAlive(monitoring_head->childArr[i], true);
          //monitoring_head->childArr[i]->isAlive = true
-         fflush(stdout);
       }
    }
    //debug
-   DisplayMonitoringString();
+   //DisplayMonitoringString();
    return;
 }

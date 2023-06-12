@@ -11,8 +11,7 @@ extern char* syncMsg;
 extern size_t syncMsgLen;
 //coap
 int ServerLoop(char* ipAddr, char* port, char* serverName);
-//tcp ip
-//int ServerLoopTCP_IP_MULTI();
+
 uint8_t GetClientID();
 
 int _MakeMsgLvi(mesh_data *ret, char*msgStr, size_t len);

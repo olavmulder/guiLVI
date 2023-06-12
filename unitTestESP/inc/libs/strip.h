@@ -3,9 +3,6 @@
 
 #include "../utils.h"
 
-
-
-
 extern strip_t *monitoring_head;
 
 void UpdateDependancy(strip_t* root);
@@ -16,6 +13,7 @@ void DisplayMonitoringString();
 int MaxDepth(Node *root);
 void UpdateDependancy(Node** root, int totalNodes);*/
 
-extern void InitTimer(Node* node);
-extern void TimerCallback(void *id);
+extern void InitTimer(Node* node, void * function);
+extern void TimerCallback(int sig, siginfo_t *si, void *uc);
+int FindID(strip_t *, int);
 #endif

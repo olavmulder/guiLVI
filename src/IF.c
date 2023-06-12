@@ -29,10 +29,6 @@ double* IFalg(double* values, size_t len, size_t amountSensors)
     }
     do{
         r = _calculate_r(r, x, weight);
-        for(size_t i = 0; i< READINGS; i++){
-           // printf("aggregate value l:%d  t%d= %.4f \n",l, i, r[i]);
-
-        }
         _calculate_d(d, x, r);
         _calculate_w(weight, d);
         l++;
@@ -47,7 +43,6 @@ void _multiply_matrices(double *m1,size_t rows1, size_t cols1,
     for (size_t i = 0; i < rows1; i++) {//readings
         res[i] = 0;
         for (size_t j = 0; j < cols1; j++) {//sensoren
-        //printf("  weigth m2[%d] = %.2f\n", j , m2[j]);
             res[i] += m1[i*cols1+j] * m2[j];
         }
     }
@@ -81,11 +76,7 @@ double* _calculate_r(double *r, double *x, double* weigth)
     
     // matrix of 'readings' long
 
-    /*for(int i = 0;i < READINGS; i++){
-            printf("%.4f ", res[i]);
-    }*/
     double b = 0;
-    //for(int i = 0;i < READINGS; i++){
     for(size_t j = 0;j <SENSORS; j++)
     {   
         b+= *(weigth+j);
@@ -103,7 +94,6 @@ void _calculate_d(double *ret, double* x, double* r)
         double res = _euclidean_distance(x,r ,j, READINGS,SENSORS);
        
         *(ret+j) = (double)(1.00/(double)READINGS) * res;
-         //printf("  d[%d]: %.3f\n", j, *(ret+j));
     }
     
 }

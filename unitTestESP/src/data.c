@@ -8,8 +8,6 @@ https://github.com/DaveGamble/cJSON
 //strings for cJSON names
 const char *TAG_DATA = "data";
 
-strip_t *monitoring_head;
-
 char* hostnameServer = idName;
 const char* nameID = "id";
 const char* nameMAC = "mac";
@@ -313,16 +311,18 @@ mesh_data HandleIncomingCMD(/*mesh_addr_t *from,*/ char* data)
     
     r.cmd = CMD_ERROR;
     //check if data is json formated
+    //printf("data: %s\n", data);
     cJSON *objPtr = cJSON_Parse(data);
     if(objPtr != NULL)
-    {
+    {   
         jsonCMD = cJSON_GetObjectItemCaseSensitive(objPtr, nameCMD);
         if(cJSON_IsNull(jsonCMD) || jsonCMD == NULL){
             cJSON_Delete(objPtr);
-            //ESP_LOGE(TAG_DATA, "jsoncmd is null");
+            printf("cmd  = null");
             return r;
         }
         r.cmd = jsonCMD->valueint;
+        //printf("r.cmd = %d\n", r.cmd);
         if(r.cmd == CMD_SET_SERVER_NUMBER)
         {
             cJSON *jsonServerCount;
@@ -346,11 +346,10 @@ mesh_data HandleIncomingCMD(/*mesh_addr_t *from,*/ char* data)
         }
         if(r.cmd == CMD_HEARTBEAT)
         {
-            //
             jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
             jsonMAC = cJSON_GetObjectItemCaseSensitive(objPtr, nameMAC);
 
-            if( jsonID == NULL ||  jsonMAC == NULL  )
+            if(jsonID == NULL || jsonMAC == NULL)
             {
                 r.cmd = CMD_ERROR;
                 return r;
@@ -419,7 +418,7 @@ mesh_data HandleIncomingCMD(/*mesh_addr_t *from,*/ char* data)
                     }
                 }
                 //ESP_LOGE(TAG_DATA, "%s, goto heartbeat handler", __func__);
-                //HeartbeatHandler(jsonID->valueint, child);
+                HeartbeatHandler(jsonID->valueint, child);
                 //free malloced strip_t & childArr from HandleCMD function
                 //ESP_LOGI(TAG_DATA, "%s, lenchild %d", __func__, child->lenChildArr);
                 for(uint8_t i = 0; i < child->lenChildArr;i++)
@@ -430,6 +429,24 @@ mesh_data HandleIncomingCMD(/*mesh_addr_t *from,*/ char* data)
             }
             
             cJSON_Delete(objPtr);
+            return r;
+        }
+        else if(r.cmd == CMD_HEARTBEAT_CONFIRM)
+        {
+            //curGeneralState = R;
+            //parent has send data back, so restart timer
+            if(heartbeat_confirm_timer_init == true)
+            {
+                //printf("%s; CMD_HEARTBEAT_CONFIRM\n", __func__);
+                RestartTimer(nodeHBTimer.periodic_timer);
+                //esp_timer_stop(heartbeat_confirm_timer);
+                //esp_timer_start_periodic(heartbeat_confirm_timer, HEARTBEAT_INTERVAL_MS_MAX_WAIT * 1000);
+            }
+            return r;
+        }
+        else if(r.cmd == CMD_SET_ERR )
+        {
+            curGeneralState = Err;
             return r;
         }
         else if(CMD_ERROR == r.cmd)
@@ -445,8 +462,9 @@ mesh_data HandleIncomingCMD(/*mesh_addr_t *from,*/ char* data)
             jsonPort =  cJSON_GetObjectItemCaseSensitive(objPtr, namePort);
             
             if(jsonMAC == NULL){
-                //ESP_LOGE(TAG_DATA, "mac is null");
             }else{
+                //printf("mac is %s", jsonMAC->valuestring);
+
                 strcpy(r.mac, jsonMAC->valuestring);
             }
 
@@ -566,6 +584,7 @@ int HandleIncomingData(char* data, double* temp_data)
  */
 int ReceiveClient(CMD cmd, char* data)
 {
+    //printf("receive client: %d\n", cmd);
     switch (cmd)
     {
         case CMD_TO_CLIENT:

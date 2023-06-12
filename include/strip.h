@@ -15,14 +15,14 @@ typedef struct _node_t
    uint16_t port;
    bool isAlive;
    timer_t timerid;
+   uint8_t timeouts;
 }Node;
 
 typedef struct _strip_t
 {
-   Node **childArr;//was idArr
+   Node **childArr;
    uint8_t lenChildArr;
-   /*uint8_t num_childs;
-   _node_t **childs;*/
+ 
 }strip_t;
 
 extern strip_t *monitoring_head;
@@ -30,13 +30,9 @@ extern strip_t *monitoring_head;
 void UpdateDependancy(strip_t* root);
 Node* NewNode(int id, char* ip, char *mac, uint16_t port, bool isAlive);//data
 strip_t* AddNodeToStrip(strip_t* strip, Node* n);
-
 int FindID(int id);
-
 void DisplayMonitoringString();
-/*void FindAllChildren(Node *node);
-int MaxDepth(Node *root);
-void UpdateDependancy(Node** root, int totalNodes);*/
+
 
 extern void InitTimer(Node* node);
 extern void TimerCallback(void *id);

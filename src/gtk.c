@@ -129,27 +129,7 @@ static void apply_transform (CanvasItem *item)
   gtk_fixed_set_child_transform (GTK_FIXED (item->fixed), item->label, transform);
   gsk_transform_unref (transform);
 }
-/*
-static void angle_changed (GtkGestureRotate *gesture,
-               double            angle,
-               double            delta)
-{
-  CanvasItem *item = CANVAS_ITEM (gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (gesture)));
 
-  item->delta = angle / M_PI * 180.0;
-
-  apply_transform (item);
-}
-*/
-/*
-static void rotate_done (GtkGesture *gesture)
-{
-  CanvasItem *item = CANVAS_ITEM (gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (gesture)));
-
-  item->angle = item->angle + item->delta;
-  item->delta = 0;
-}
-*/
 static void click_done (GtkGesture *gesture)
 {
   GtkWidget *item = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (gesture));
@@ -160,29 +140,6 @@ static void click_done (GtkGesture *gesture)
   if (item != last_child)
     gtk_widget_insert_after (item, canvas, last_child);
 }
-/*
-static gboolean theme_is_dark (void)
-{
-  GtkSettings *settings;
-  char *theme;
-  gboolean prefer_dark;
-  gboolean dark;
-
-  settings = gtk_settings_get_default ();
-  g_object_get (settings,
-                "gtk-theme-name", &theme,
-                "gtk-application-prefer-dark-theme", &prefer_dark,
-                NULL);
-
-  if ((strcmp (theme, "Adwaita") == 0 && prefer_dark) || strcmp (theme, "HighContrastInverse") == 0)
-    dark = TRUE;
-  else
-    dark = FALSE;
-
-  g_free (theme);
-
-  return dark;
-}*/
 
 //item item ding
 static void canvas_item_init (CanvasItem *it)
@@ -229,12 +186,6 @@ static void canvas_item_init (CanvasItem *it)
   g_timeout_add(500,G_SOURCE_FUNC(CallbackTemperature), it);
 
 
-  /*if (theme_is_dark ())
-    gdk_rgba_parse (&rgba, "blue");
-  else
-    gdk_rgba_parse (&rgba, "yellow");*/
-
-  //TODO dropdown?
   
   gdk_rgba_parse (&rgba, colorLVI[0]);
   set_color (it, &rgba);
@@ -246,11 +197,7 @@ static void canvas_item_init (CanvasItem *it)
   g_signal_connect (dest, "drop", G_CALLBACK (item_drag_drop), NULL);
   gtk_widget_add_controller (GTK_WIDGET (it->label), GTK_EVENT_CONTROLLER (dest));
 
-  /*gesture = gtk_gesture_rotate_new ();
-  g_signal_connect (gesture, "angle-changed", G_CALLBACK (angle_changed), NULL);
-  g_signal_connect (gesture, "end", G_CALLBACK (rotate_done), NULL);
-  gtk_widget_add_controller (GTK_WIDGET (item), GTK_EVENT_CONTROLLER (gesture));*/
-
+ 
   gesture = gtk_gesture_click_new ();
   g_signal_connect (gesture, "released", G_CALLBACK (click_done), NULL);
   gtk_widget_add_controller (GTK_WIDGET (item), GTK_EVENT_CONTROLLER (gesture));
@@ -313,68 +260,6 @@ static void scale_changed (GtkRange   *range,
   apply_transform (item);
 }
 
-//should not be possible
-/*
-static void text_changed (GtkEditable *editable,
-              GParamSpec  *pspec,
-              CanvasItem  *item)
-{
-  gtk_label_set_text (GTK_LABEL (item->label), gtk_editable_get_text (editable));
-  apply_transform (item);
-}*/
-/*
-static void canvas_item_stop_editing (CanvasItem *item)
-{
-  GtkWidget *scale;
-
-  if (!item->editor)
-    return;
-
-  scale = gtk_widget_get_last_child (item->editor);
-  g_signal_handlers_disconnect_by_func (scale, scale_changed, item);
-
-  gtk_fixed_remove (GTK_FIXED (gtk_widget_get_parent (item->editor)), item->editor);
-  item->editor = NULL;
-}
-
-static void canvas_item_start_editing (CanvasItem *item)
-{
-  GtkWidget *canvas = gtk_widget_get_parent (GTK_WIDGET (item));
-  GtkWidget *entry;
-  GtkWidget *scale;
-  graphene_point_t p;
-
-  if (item->editor)
-    return;
-
-  item->editor = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
-
-  entry = gtk_entry_new ();
-
-  gtk_editable_set_text (GTK_EDITABLE (entry),
-                         gtk_label_get_text (GTK_LABEL (item->label)));
-
-  gtk_editable_set_width_chars (GTK_EDITABLE (entry), 12);
-  g_signal_connect (entry, "notify::text", G_CALLBACK (text_changed), item);
-  g_signal_connect_swapped (entry, "activate", G_CALLBACK (canvas_item_stop_editing), item);
-
-  gtk_box_append (GTK_BOX (item->editor), entry);
-
-  scale = gtk_scale_new_with_range (GTK_ORIENTATION_HORIZONTAL, 0, 360, 1);
-  gtk_scale_set_draw_value (GTK_SCALE (scale), FALSE);
-  gtk_range_set_value (GTK_RANGE (scale), fmod (item->angle, 360));
-
-  g_signal_connect (scale, "value-changed", G_CALLBACK (scale_changed), item);
-
-  gtk_box_append (GTK_BOX (item->editor), scale);
-
-  if (!gtk_widget_compute_point (GTK_WIDGET (item), canvas, &GRAPHENE_POINT_INIT (0, 0), &p))
-    graphene_point_init (&p, 0, 0);
-  gtk_fixed_put (GTK_FIXED (canvas), item->editor, p.x, p.y + 2 * item->r);
-  gtk_widget_grab_focus (entry);
-
-}
-*/
 typedef struct {
   double x, y;
 } Hotspot;
@@ -491,9 +376,6 @@ static void edit_cb (GtkWidget *button, GtkWidget *child)
 
   if (button)
     gtk_popover_popdown (GTK_POPOVER (gtk_widget_get_ancestor (button, GTK_TYPE_POPOVER)));
-
- // if (!canvas_item_is_editing (item))
-   // canvas_item_start_editing (item);
 }
 
 static void delete_cb (GtkWidget *button, GtkWidget *child)
@@ -504,86 +386,6 @@ static void delete_cb (GtkWidget *button, GtkWidget *child)
 
   gtk_popover_popdown (GTK_POPOVER (gtk_widget_get_ancestor (button, GTK_TYPE_POPOVER)));
 }
-/*
-static void pressed_cb (GtkGesture *gesture,
-            int         n_press,
-            double      x,
-            double      y,
-            gpointer    data)
-{
-  GtkWidget *widget;
-  GtkWidget *child;
-  //DROPDOWN menu
-
-  widget = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (gesture));
-  child = gtk_widget_pick (widget, x, y, GTK_PICK_DEFAULT);
-  child = gtk_widget_get_ancestor (child, canvas_item_get_type ());
-
-  if (gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (gesture)) == GDK_BUTTON_SECONDARY)
-    {
-      GtkWidget *menu;
-      GtkWidget *box;
-      GtkWidget *item;
-
-      menu = gtk_popover_new ();
-      gtk_widget_set_parent (menu, widget);
-      gtk_popover_set_has_arrow (GTK_POPOVER (menu), FALSE);
-      gtk_popover_set_pointing_to (GTK_POPOVER (menu), &(GdkRectangle){ x, y, 1, 1});
-      box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-      gtk_popover_set_child (GTK_POPOVER (menu), box);
-
-      item = gtk_button_new_with_label ("New");
-      gtk_button_set_has_frame (GTK_BUTTON (item), FALSE);
-      g_signal_connect (item, "clicked", G_CALLBACK (new_item_cb), widget);
-      gtk_box_append (GTK_BOX (box), item);
-
-      item = gtk_separator_new (GTK_ORIENTATION_HORIZONTAL);
-      gtk_box_append (GTK_BOX (box), item);
-
-      item = gtk_button_new_with_label ("Edit");
-      gtk_button_set_has_frame (GTK_BUTTON (item), FALSE);
-      gtk_widget_set_sensitive (item, child != NULL && child != widget);
-      g_signal_connect (item, "clicked", G_CALLBACK (edit_cb), child);
-      gtk_box_append (GTK_BOX (box), item);
-
-      item = gtk_separator_new (GTK_ORIENTATION_HORIZONTAL);
-      gtk_box_append (GTK_BOX (box), item);
-
-      item = gtk_button_new_with_label ("Delete");
-      gtk_button_set_has_frame (GTK_BUTTON (item), FALSE);
-      gtk_widget_set_sensitive (item, child != NULL && child != widget);
-      g_signal_connect (item, "clicked", G_CALLBACK (delete_cb), child);
-      gtk_box_append (GTK_BOX (box), item);
-
-      gtk_popover_popup (GTK_POPOVER (menu));
-    }
-    
-}*/
-/*
-static void released_cb (GtkGesture *gesture,int n_press,
-             double      x,
-             double      y,
-             gpointer    data)
-{
-  GtkWidget *widget;
-  GtkWidget *child;
-  CanvasItem *item;
-
-  /*widget = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (gesture));
-  child = gtk_widget_pick (widget, x, y, 0);
-  item = (CanvasItem *)gtk_widget_get_ancestor (child, canvas_item_get_type ());
-  if (!item)
-    return;
-
-  if (gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (gesture)) == GDK_BUTTON_PRIMARY)
-    {
-      if (canvas_item_is_editing (item))
-        canvas_item_stop_editing (item);
-      else
-        canvas_item_start_editing (item);
-    }
-    
-}*/
 
 static GtkWidget *canvas_new (void)
 {
@@ -610,8 +412,7 @@ static GtkWidget *canvas_new (void)
 
   gesture = gtk_gesture_click_new ();
   gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), 0);
-  //g_signal_connect (gesture, "pressed", G_CALLBACK (pressed_cb), NULL);
-  //g_signal_connect (gesture, "released", G_CALLBACK (released_cb), NULL);
+
   gtk_widget_add_controller (canvas, GTK_EVENT_CONTROLLER (gesture));
 
   return canvas;
@@ -650,78 +451,6 @@ static GtkWidget *css_button_new (const char *class)
 
   return button;
 }
-/*
-typedef struct
-{
-  GtkWidget parent_instance;
-  GdkRGBA color;
-} ColorSwatch;
-
-typedef struct
-{
-  GtkWidgetClass parent_class;
-} ColorSwatchClass;
-
-G_DEFINE_TYPE (ColorSwatch, color_swatch, GTK_TYPE_WIDGET)
-
-static GdkContentProvider *color_swatch_drag_prepare (GtkDragSource  *source,
-                           double          x,
-                           double          y,
-                           ColorSwatch    *swatch)
-{
-  return gdk_content_provider_new_typed (GDK_TYPE_RGBA, &swatch->color);
-}
-
-static void color_swatch_init (ColorSwatch *swatch)
-{
-  GtkDragSource *source = gtk_drag_source_new ();
-  g_signal_connect (source, "prepare", G_CALLBACK (color_swatch_drag_prepare), swatch);
-  gtk_widget_add_controller (GTK_WIDGET (swatch), GTK_EVENT_CONTROLLER (source));
-}
-
-static void color_swatch_snapshot (GtkWidget   *widget,
-                       GtkSnapshot *snapshot)
-{
-  ColorSwatch *swatch = (ColorSwatch *)widget;
-  float w = gtk_widget_get_width (widget);
-  float h = gtk_widget_get_height (widget);
-
-  gtk_snapshot_append_color (snapshot, &swatch->color,
-                             &GRAPHENE_RECT_INIT(0, 0, w, h));
-}
-
-void color_swatch_measure (GtkWidget      *widget,
-                      GtkOrientation  orientation,
-                      int             for_size,
-                      int            *minimum_size,
-                      int            *natural_size,
-                      int            *minimum_baseline,
-                      int            *natural_baseline)
-{
-  if (orientation == GTK_ORIENTATION_HORIZONTAL)
-    *minimum_size = *natural_size = 48;
-  else
-    *minimum_size = *natural_size = 32;
-}
-
-static void color_swatch_class_init (ColorSwatchClass *class)
-{
-  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (class);
-
-  widget_class->snapshot = color_swatch_snapshot;
-  widget_class->measure = color_swatch_measure;
-  gtk_widget_class_set_css_name (widget_class, "colorswatch");
-}
-
-static GtkWidget *color_swatch_new (const char *color)
-{
-  ColorSwatch *swatch = g_object_new (color_swatch_get_type (), NULL);
-
-  gdk_rgba_parse (&swatch->color, color);
-
-  return GTK_WIDGET (swatch);
-}
-*/
 
 static void setup_cb (GtkSignalListItemFactory *self, GtkListItem *listitem, gpointer user_data) {
   GtkWidget *lb = gtk_label_new (NULL);
@@ -883,25 +612,116 @@ bool CallbackDrowDown(gpointer data)
     }
   }
   
-  if(firstTimeCallBack[id] == false)firstTimeCallBack[id]=true;
-  
-  if(changeClose && changeVolt)
+  if(firstTimeCallBack[id] == false)
+    firstTimeCallBack[id]=true;
+  else
   {
-    printf("A\n");
-    MakeChangeLog(id,tempVolt,tempClose,0,false, true, true, false, false);
+    if(changeClose && changeVolt)
+    {
+      printf("A\n");
+      MakeChangeLog(id,tempVolt,tempClose,0,false, true, true, false, false);
+    }
+    else if(changeClose && !changeVolt)
+    {
+      printf("B\n");
+      MakeChangeLog(id,0,tempClose,0,false, false, true, false, false);
+    }
+    else if(!changeClose && changeVolt)
+    {
+      printf("C\n");
+      MakeChangeLog(id,tempVolt,0,0,false, true, false, false, false);
+    }
   }
-  else if(changeClose && !changeVolt)
+  if(!canvasInitDone)
   {
-    printf("B\n");
-    MakeChangeLog(id,0,tempClose,0,false, false, true, false, false);
-  }
-  else if(!changeClose && changeVolt)
-  {
-    printf("C\n");
-    MakeChangeLog(id,tempVolt,0,0,false, true, false, false, false);
+    for(uint8_t i = 0 ; i < AMOUNT_NODES; i++)
+    {
+      if(firstTimeCallBack[id] == false)
+        return G_SOURCE_CONTINUE;
+    }
+    canvasInitDone = true;
+    g_print("canvas init done\n");
   }
   
   return G_SOURCE_CONTINUE;
+
+}
+
+void ButtonCallback(GtkToggleButton *button, gpointer user_data)
+{
+  gboolean active = gtk_toggle_button_get_active(button);
+  switch((int)user_data)
+  {
+    case 0:
+      if(active)
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
+
+      }
+      else
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)1+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)1+1);
+
+      }
+      break;
+    case 1:
+      if(active)
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[3])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[4])->dropdownClose),(unsigned int)2+1);
+
+      }
+      else
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)1+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)1+1);
+
+      }
+      break;
+    case 2:
+      if(active)
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[3])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[4])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[5])->dropdownClose),(unsigned int)2+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[6])->dropdownClose),(unsigned int)2+1);
+
+      }
+      else
+      {
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[5])->dropdownClose),(unsigned int)1+1);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[6])->dropdownClose),(unsigned int)1+1);
+        
+      }
+      break;
+    default:
+      break;
+  };
+
+}
+void XYZ_Button(GtkWidget** buttonX, GtkWidget** buttonY, GtkWidget** buttonZ)
+{
+
+  *buttonX = gtk_toggle_button_new_with_label("X");
+  *buttonY = gtk_toggle_button_new_with_label("Y");
+  *buttonZ = gtk_toggle_button_new_with_label("Z");
+  g_signal_connect(*buttonX, "clicked", G_CALLBACK(ButtonCallback), (void*)0);
+  g_signal_connect(*buttonY, "clicked", G_CALLBACK(ButtonCallback), (void*)1);
+    g_signal_connect(*buttonZ, "clicked", G_CALLBACK(ButtonCallback), (void*)2);
+  //Apply CSS styling to the button
+  gtk_widget_add_css_class(*buttonX, "custom-button");
+  gtk_widget_add_css_class(*buttonY, "custom-button");
+  gtk_widget_add_css_class(*buttonZ, "custom-button");
+  gtk_widget_set_size_request(*buttonX, 20, 20);
+  gtk_widget_set_size_request(*buttonY, 20, 20);
+  gtk_widget_set_size_request(*buttonZ, 20, 20);
+
 
 }
 static GtkWidget *window = NULL;
@@ -914,25 +734,22 @@ static void do_dnd (GtkApplication *app, gpointer user_data)
       //window = gtk_window_new ();
       window = gtk_application_window_new (app);
      
-      gtk_window_set_title (GTK_WINDOW (window), "Drag-and-Drop");
-      gtk_window_set_default_size (GTK_WINDOW (window), 400,400);//1920, 1080);
+      gtk_window_set_title (GTK_WINDOW (window), "Centrale bedieningspaneel");
+      gtk_window_set_default_size (GTK_WINDOW (window), 1920, 1080);
       g_object_add_weak_pointer (G_OBJECT (window), (gpointer *)&window);
       GtkWidget *button;
       GtkWidget *sw;
       GtkWidget *canvas;
       GtkWidget *box, *box2;
+      GtkWidget *layout;
+      GtkWidget *image;
       
       int i;
       int x, y;
       GtkCssProvider *provider;
       GString *css;
 
-/*
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-      button = gtk_color_button_new ();
-G_GNUC_END_IGNORE_DEPRECATIONS
-      g_object_unref (g_object_ref_sink (button));
-*/const char *colors[] = {
+      const char *colors[] = {
         "red", "green", "blue", "magenta", "orange", "gray", "black", "yellow",
         "white", "gray", "brown", "pink",  "cyan", "bisque", "gold", "maroon",
         "navy", "orchid", "olive", "peru", "salmon", "silver", "wheat",
@@ -943,59 +760,75 @@ G_GNUC_END_IGNORE_DEPRECATIONS
       css = g_string_new ("");
       for (i = 0; colors[i]; i++)
         g_string_append_printf (css, ".canvasitem.%s { background: %s; }\n", colors[i], colors[i]);
-      
-      g_string_append_printf(css, "window {background-image: url(\"img/E-H Deck1024_1.jpg\"); }");
+                              
       provider = gtk_css_provider_new ();
       gtk_css_provider_load_from_data (provider, css->str, css->len);
-      gtk_style_context_add_provider_for_display (gdk_display_get_default (),
-                                                  GTK_STYLE_PROVIDER (provider),
-                                                  1080);
-      //g_object_unref (provider);
-      //g_string_free (css, TRUE);
-
+      GtkCssProvider *cssProvider = gtk_css_provider_new();
+      gtk_css_provider_load_from_path(cssProvider, "style.css"); // Replace with the path to your CSS file
+      gtk_style_context_add_provider_for_display(gdk_display_get_default(),GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+      gtk_style_context_add_provider_for_display(gdk_display_get_default(),GTK_STYLE_PROVIDER (provider),  GTK_STYLE_PROVIDER_PRIORITY_USER);
       
+      //box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+      //box2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 
-      box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-      gtk_window_set_child (GTK_WINDOW (window), box);
-
-      box2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-      gtk_box_append (GTK_BOX (box), box2);
 
       canvas = canvas_new ();
-      gtk_box_append (GTK_BOX (box2), canvas);
-
       n_items = 0;
 
-      x = y = 40;
+      y = 220;
+      x = 1200;
       //make new item 
       for (i = 0; i < AMOUNT_NODES; i++)
       {
           item[i] = canvas_item_new ();
           gtk_fixed_put (GTK_FIXED (canvas), item[i], x, y);
           apply_transform (CANVAS_ITEM (item[i]));
-          x += 75;
+
+            if( i % 2 == 0 && i != 0)
+            {
+              y += 150;
+              x -= 75;
+            }
+            else 
+              x += 75;
       }
-      //canvasInitDone = true;
+      GtkWidget *overlay = gtk_overlay_new();
+      GtkWidget *box_main = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+      // Load the background image
+      image = gtk_image_new_from_file("img/plat.jpg");  // Replace with the actual image path
+      // Set the image as the overlay's background
+
+      //add x,y,z status button
+      GtkWidget* buttonX;
+      GtkWidget* buttonY;
+      GtkWidget* buttonZ;
+      GtkWidget* box_button = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+      XYZ_Button(&buttonX, &buttonY, &buttonZ);
+      gtk_box_append(GTK_BOX(box_button), buttonX);
+      gtk_box_append(GTK_BOX(box_button), buttonY);
+      gtk_box_append(GTK_BOX(box_button), buttonZ);
+      
+      gtk_box_append(GTK_BOX(box_main), canvas);
+      gtk_box_append(GTK_BOX(box_main), box_button);
+
+      
+      gtk_overlay_set_child(GTK_OVERLAY(overlay), image);
+      gtk_overlay_add_overlay(GTK_OVERLAY(overlay), box_main );
+
+      gtk_window_set_child (GTK_WINDOW (window), overlay);
+
       //inti callback filtered temperature
       g_timeout_add(5000,G_SOURCE_FUNC(CallbackFilteredTemperature), NULL);
-
-      gtk_box_append (GTK_BOX (box), gtk_separator_new (GTK_ORIENTATION_HORIZONTAL));
-
-      /*sw = gtk_scrolled_window_new ();
-      gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),
-                                      GTK_POLICY_AUTOMATIC,
-                                      GTK_POLICY_NEVER);
-      gtk_box_append (GTK_BOX (box), sw);*/
-
+      
      
+      //gtk_box_append (GTK_BOX (box), gtk_separator_new (GTK_ORIENTATION_HORIZONTAL));
     }
 
   if (!gtk_widget_get_visible (window))
     gtk_widget_set_visible (window, TRUE);
   else
     gtk_window_destroy (GTK_WINDOW (window));
-  //gtk_widget_show(window);
-  //return window;
+
 }
 
 

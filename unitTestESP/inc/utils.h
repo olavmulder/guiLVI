@@ -9,6 +9,10 @@
 #include <assert.h>
 #include "config.h"
 
+#include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
+#include <signal.h>
 
 
 #define ID "2"
@@ -17,7 +21,7 @@
 #define LV_TICK_PERIOD_MS 1
 #define AMOUNT_ETH_CONNECTION_FAILURE 10
 #define LENGTH_IP 20
-
+#define HEARTBEAT_INTERVAL_MS_MAX_WAIT   2*HEARTBEAT_INTERVAL_MS  // Send a heartbeat every 5 seconds
 #define AMOUNT_SERVER_ADDRS 2
 
 typedef enum{
@@ -36,7 +40,7 @@ typedef enum{
 
 typedef enum _CMD{
    CMD_ERROR, CMD_INIT_VALID, CMD_INIT_INVALID, CMD_INIT_SEND,
-   CMD_TO_CLIENT, CMD_TO_SERVER, CMD_HEARTBEAT, CMD_SET_ERR, 
+   CMD_TO_CLIENT, CMD_TO_SERVER, CMD_HEARTBEAT, CMD_HEARTBEAT_CONFIRM, CMD_SET_ERR, 
    CMD_SET_SERVER_NUMBER
 }CMD;
 
@@ -68,7 +72,7 @@ typedef struct _node_t
    char mac_wifi[LENGTH_IP];
    uint16_t port;
    bool isAlive;
-   //esp_timer_handle_t periodic_timer;
+   timer_t periodic_timer;
 }Node;
 
 typedef struct _strip_t
@@ -85,6 +89,10 @@ extern volatile VoltageFreeState curVoltageState;
 extern double curMeasuredTemp;
 extern double curReceivedTemp;
 extern volatile CommunicationState comState;
+
+//timer variables
+extern volatile bool heartbeat_confirm_timer_init ;
+extern timer_t heartbeat_confirm_timer;
 
 
 //wifi/eth connection varables

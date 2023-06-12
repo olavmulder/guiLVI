@@ -2,6 +2,7 @@
 #include "inc/data.h"
 #include "inc/config.h"
 #include "inc/utils.h"
+#include "inc/heartbeat.h"
 volatile ClosingState curGeneralState = Err;
 volatile VoltageFreeState curVoltageState;
 double curMeasuredTemp;
@@ -16,6 +17,11 @@ volatile bool is_eth_connected = false;
 
 volatile bool gotIPAddress = false;
 volatile bool heartbeatEnable = false;
+
+char mac_wifi[20] = "aa:bb:cc"; 
+char ip_wifi[20] = "192.168.2.106"; 
+
+const char *SERVER_IP[AMOUNT_SERVER_ADDRS] = {"192.168.2.109","192.168.2.106"};//, "192.168.178.25", }; 
 
 char idName[5];
 //recieve eth
@@ -36,9 +42,9 @@ int receive(mesh_data *r, char* data)
 }
 int ReceiveWiFiMeshLeaf(mesh_data *r, uint8_t* data)
 {
-    char mac_wifi[] = "aa:bb:cc"; 
     //receive own data
     int ret = -1;
+    //printf(" %s != %s", r->mac, mac_wifi);
     if(strcmp(r->mac, mac_wifi) == 0)
     {
         ret = ReceiveClient(r->cmd, (char*)data);
@@ -98,7 +104,7 @@ int ReceiveWiFiMesh(char* buf, size_t len, bool is_root)
     if(strlen((char*)rx_buf) != 0)bufIsFull = true;
     while(bufIsFull)
     {
-        //ESP_LOGI(TAG_WIFI, "%s, RECEIVE: %s", __func__, data_rx.data);
+        //printf("%s, RECEIVE: %s", __func__, rx_buf);
         r = HandleIncomingCMD((char*)rx_buf);
         //if it was CMD_HEARTBEAT it is already handled in last function,
         //so return 0
@@ -114,6 +120,7 @@ int ReceiveWiFiMesh(char* buf, size_t len, bool is_root)
         }
         else
         {
+            //printf("leaf receive cmd:%d\n", r.cmd);
             res = ReceiveWiFiMeshLeaf(&r, rx_buf);
             if(res < 0)
             {
@@ -257,8 +264,189 @@ int main()
     snprintf(message6, 500, "{\"%s\":%d,\"%s\":\"%s\", \"%s\": %d}", nameCMD, CMD_TO_CLIENT, nameMAC, "aa:bb:cc", nameTemp, 1);
     ReceiveWiFiMesh(message6, strlen(message6), false);
     assert(curReceivedTemp == 1);
-    printf("Completed\n");
 
+
+
+    //hearbeat protocol
+    //add to monitoring list
+    Node n = {
+        .id = 0,
+        .ip_wifi = "192.",
+        .isAlive = true
+    };
+    //init
+    strip_t *str;
+    str = StartHeartbeat(str);
+    //when add realloc one extra
+    str = AddNodeToStrip(str, &n);
+    assert(str->lenChildArr == 1);
+    //check right values
+    assert(str->childArr[0]->id == 0);
+    assert(strcmp(str->childArr[0]->ip_wifi, "192.") == 0);
+    assert(str->childArr[0]->isAlive == true);
+    //add one more, but is same so do not add
+    str = AddNodeToStrip(str, &n);
+    assert(str->lenChildArr == 1);
+    //add a new one
+    n.id = 1;
+    str = AddNodeToStrip(str, &n);
+        //check right values
+        assert(str->childArr[1]->id == 1);
+        assert(strcmp(str->childArr[1]->ip_wifi, "192.") == 0);
+        assert(str->childArr[1]->isAlive == true);
+        assert(str->lenChildArr == 2);
+
+    //strip found
+    assert(FindID(str,0) == 0);
+    assert(FindID(str,1) == 0);
+
+    //strip not found
+    assert(FindID(str,2) == -1);
+
+    timer_delete(str->childArr[0]->periodic_timer);
+    timer_delete(str->childArr[1]->periodic_timer);
+
+    //heartbeat
+
+        //test set alive 
+        SetAlive(str, 0, true);
+        assert(str->childArr[0]->id == 0);
+        assert(str->childArr[0]->isAlive == true);
+        SetAlive(str, 0, false);
+        assert(str->childArr[0]->id == 0);
+        assert(str->childArr[0]->isAlive == false);
+
+        //check working timer
+            //make node
+            monitoring_head = StartHeartbeat(monitoring_head);
+            timer_t t;
+            n.periodic_timer = t;
+            monitoring_head = AddNodeToStrip(monitoring_head, &n);
+            //set is alive true
+            monitoring_head->childArr[0]->isAlive = true;
+            sleep(2); //wait till timer goes off
+            //check if isAlive is false, so timercallback works
+            assert(monitoring_head->childArr[0]->isAlive == false);
+            //and again...
+            monitoring_head->childArr[0]->isAlive = true;
+            sleep(2); //wait till timer goes off
+            //check if isAlive is false, so timercallback works
+            assert(monitoring_head->childArr[0]->isAlive == false);
+            //and again...
+            monitoring_head->childArr[0]->isAlive = true;
+            sleep(2); //wait till timer goes off
+            //check if isAlive is false, so timercallback works
+            assert(monitoring_head->childArr[0]->isAlive == false);
+            //and again...
+            monitoring_head->childArr[0]->isAlive = true;
+            sleep(2); //wait till timer goes off
+            //check if isAlive is false, so timercallback works
+            assert(monitoring_head->childArr[0]->isAlive == false);
+
+            //check if server is timed out three times, then switch to other server
+            timer_t t1;
+            Node n1 = {
+                .id = 255, //'server id'
+                .ip_wifi = "192.168.2.109",
+                .periodic_timer = t1
+            };
+            monitoring_head = AddNodeToStrip(monitoring_head, &n1);
+            sleep(2);//cant take 31 sec sleep at once
+            sleep(2);
+            sleep(2);
+            assert(curGeneralState == Err);
+            assert(currentServerIPCount_WIFI == 1);
+            timer_delete(monitoring_head->childArr[0]->periodic_timer);
+            timer_delete(monitoring_head->childArr[1]->periodic_timer);
+            for(uint8_t i = 0; i < monitoring_head->lenChildArr;i++)
+                free(monitoring_head->childArr[i]);
+            free(monitoring_head->childArr);
+            free(monitoring_head);
+
+    
+    //handle incoming data, CMD_CONF & CMD_HEARTBEAT
+        monitoring_head = StartHeartbeat(monitoring_head);
+        char data[500];
+        snprintf(data, 500, "{\"%s\": %d, \"%s\": %d, \"%s\" :\"%s\", \"%s\": %d, \"%s\": \"%s\" }", nameCMD, CMD_HEARTBEAT, nameID, 2,
+            nameMAC, "aa:bb:cc:dd", namePort, 8080, nameIP, "192.168.2.104");
+        //handle incoming string 'data';
+        mesh_data r = HandleIncomingCMD(data);
+        //in handleincoming sender info is added to monitoring_head
+        assert(r.cmd == CMD_HEARTBEAT);
+        assert(monitoring_head->lenChildArr == 1);
+        assert(monitoring_head->childArr[0]->id = 2);
+        assert(monitoring_head->childArr[0]->port = 8080);
+        assert(strcmp(monitoring_head->childArr[0]->ip_wifi, "192.168.2.104") == 0);
+        assert(strcmp(monitoring_head->childArr[0]->mac_wifi, "aa:bb:cc:dd") == 0);
+
+        snprintf(data, 500, "{\"%s\": %d, \"%s\": %d, \"%s\" :\"%s\", \"%s\": %d, \"%s\": \"%s\", \"%s\": [{\"%s\" : \"%s\", \"%s\" : \"%s\", \"%s\" : %d, \"%s\" : %d, \"%s\" :%d}] }", nameCMD, CMD_HEARTBEAT, nameID, 2,
+            nameMAC, "aa:bb:cc:dd", namePort, 8080, nameIP, "192.168.2.104", "array", nameMAC, "aa:bb:cc:dd:ee", nameIP, "192.168.2.105", namePort, 8080, nameIsAlive, true, nameID, 3);
+        r = HandleIncomingCMD(data);
+        assert(r.cmd == CMD_HEARTBEAT);
+        assert(monitoring_head->lenChildArr == 2);
+        assert(monitoring_head->childArr[0]->id = 2);
+        assert(monitoring_head->childArr[0]->port = 8080);
+        assert(strcmp(monitoring_head->childArr[0]->ip_wifi, "192.168.2.104") == 0);
+        assert(strcmp(monitoring_head->childArr[0]->mac_wifi, "aa:bb:cc:dd") == 0);
+        //node 2 added o monitoring list
+        assert(monitoring_head->childArr[1]->id = 3);
+        assert(monitoring_head->childArr[1]->port = 8080);
+        assert(strcmp(monitoring_head->childArr[1]->ip_wifi, "192.168.2.105") == 0);
+        assert(strcmp(monitoring_head->childArr[1]->mac_wifi, "aa:bb:cc:dd:ee") == 0);
+
+        sleep(2);//all childs in list are timed out, so isAlive is false
+        assert(monitoring_head->childArr[0]->isAlive == false);
+        assert(monitoring_head->childArr[1]->isAlive == false);
+
+    //timer heartbeat confirm message
+    //if not receiving time, state is err.
+    TimerHBConfirmInit();
+    curGeneralState = R;
+    sleep(2);
+    assert(curGeneralState == Err);
+    
+    for(uint8_t i = 0; i < monitoring_head->lenChildArr;i++)
+    {
+        timer_delete(monitoring_head->childArr[i]->periodic_timer);
+        free(monitoring_head->childArr[i]);
+    }
+    free(monitoring_head->childArr);
+    free(monitoring_head);
+
+
+    monitoring_head = StartHeartbeat(monitoring_head);
+    //receive incoming from id 1 & 2; 1 = has no child, 2 has 1 childs(id 3).
+    snprintf(data, 500, "{\"%s\": %d, \"%s\": %d, \"%s\" :\"%s\", \"%s\": %d, \"%s\": \"%s\", \"%s\": [{\"%s\" : \"%s\", \"%s\" : \"%s\", \"%s\" : %d, \"%s\" : %d, \"%s\" :%d}] }", nameCMD, CMD_HEARTBEAT, nameID, 2,
+            nameMAC, "aa:bb:cc:dd", namePort, 8080, nameIP, "192.168.2.104", "array", nameMAC, "aa:bb:cc:dd:ee", nameIP, "192.168.2.105", namePort, 8080, nameIsAlive, true, nameID, 3);
+    r = HandleIncomingCMD(data);
+    snprintf(data, 500, "{\"%s\": %d, \"%s\": %d, \"%s\" :\"%s\", \"%s\": %d, \"%s\": \"%s\" }", nameCMD, CMD_HEARTBEAT, nameID, 1,
+            nameMAC, "aa:bb:cc:ff", namePort, 8080, nameIP, "192.168.2.103");
+        //handle incoming string 'data';
+    r = HandleIncomingCMD(data);
+    assert(monitoring_head->lenChildArr == 3);
+    assert(monitoring_head->childArr[0]->isAlive == true);
+    assert(monitoring_head->childArr[1]->isAlive == true);
+    assert(monitoring_head->childArr[2]->isAlive == true);
+    sleep(2);
+    assert(monitoring_head->childArr[0]->isAlive == false);
+    assert(monitoring_head->childArr[1]->isAlive == false);
+    assert(monitoring_head->childArr[2]->isAlive == false);
+
+    //code from timerhbConfirmCallBack
+        mesh_data r2 = {
+        .id = atoi(idName),
+        .cmd = CMD_SET_ERR 
+    };
+    memcpy(r2.mac, mac_wifi, sizeof(r.mac));
+    char msg[50];
+    //test if CMD_SET_ERR works
+    MakeMsgString(msg, &r2, NULL, NULL, false, false, false);
+    curGeneralState = Y;
+    HandleIncomingCMD(msg);
+    assert(curGeneralState == Err);
+
+    //if state set on Err, but 
+    printf("\nCompleted\n");
 
 }
 /*

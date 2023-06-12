@@ -1,48 +1,11 @@
-/*
- * Copyright (c) 2018, 2019 Amine Ben Hassouna <amine.benhassouna@gmail.com>
- * All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any
- * person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the
- * Software without restriction, including without
- * limitation the rights to use, copy, modify, merge,
- * publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software
- * is furnished to do so, subject to the following
- * conditions:
- *
- * The above copyright notice and this permission notice
- * shall be included in all copies or substantial portions
- * of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
- * ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
- * TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
- * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
- * SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
- * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
- * IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *
- */
-/**
- * sync: TCP/IP socket connection -> in data -> HandleIncomingData(data.c)
- *                                -> out data
- * lvi communication:   a: TCP/IP (eth) 
- *                      b: COAP (wifi)
- *                         -> handling same data HandleIncomingData(data.c)
- *                         -> sending and received different                      
-*/
 #include "../include/gtk.h"
 #include "../include/socket.h"
 #include "../include/coap.h"
-//change server ip to 192.168.2.103
-//after that set client on a specific bind
-//after that client & server test...
+
 volatile bool hasChanged;
-#define C
+
+const char *SERVER_IP[AMOUNT_SERVER_ADDRS] = {"192.168.2.109","192.168.2.106"};//, "192.168.178.25", }; 
+
 struct clientArg
 {
     char ownAddr[20];
@@ -58,25 +21,34 @@ void *ClientTask(void* vargp)
     return NULL;
 }
 
+void *HeartbeatTask(void *vargp)
+{
+    char tx_buf[2000];
+    fflush(stdout);
+    while(1)
+    {
+        sleep(5);
+        if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
+        {
+            printf("%s, make string heartbeat error\n", __func__);
+        }
+
+        int res = SendSync(tx_buf, strlen(tx_buf));
+        if(res <= 0)
+        {
+            printf("%s; send error\n", __func__);
+        }
+        fflush(stdout);
+    }
+}
 void *ServerTask(void *vargp)
 {
-    #ifndef C //(char*)vargp
     ServerLoopTCP_IP_MULTI((char*)vargp);//tcp/ip connection
-    #endif
     return NULL;
 }
 void *LviTaskCOAP(void *vargp)
 {
-    //is already while loop; for connection with lvi's
-    //
-    //103
-    //192.168.2.103
-    //192.168.178.25
-    //ServerLoopTCP_IP();
-    
     int res = ServerLoop((char*)vargp, "5683", "server");
-    //printf("res coap %d", res);
-    fflush(stdout);
     return NULL;
 }
 
@@ -90,7 +62,7 @@ int main(int argc, char* argv[])
     pthread_t guiTask;
     pthread_t server;
     pthread_t coap;
-
+    pthread_t heart;
     struct clientArg c;
     strcpy(c.ownAddr, argv[2]);
     strcpy(c.serverAddr, argv[3]);
@@ -99,9 +71,13 @@ int main(int argc, char* argv[])
     pthread_create(&server, NULL, ServerTask, c.ownAddr);
     pthread_create(&client, NULL, ClientTask,(void*)&c);
     pthread_create(&coap, NULL, LviTaskCOAP, c.ownAddr);
-   
-   // pthread_join(client, NULL);
+    pthread_create(&heart, NULL, HeartbeatTask, c.ownAddr);
+
+    #ifdef C
+    pthread_join(client, NULL);
+    #endif
     pthread_join(guiTask, NULL);
     pthread_join(server, NULL);
     pthread_join(coap, NULL);
+    pthread_join(heart, NULL);
 }

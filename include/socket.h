@@ -12,4 +12,6 @@ extern int clientSyncSocketNumber;
 int ServerLoopTCP_IP_MULTI(char*);
 void ClientLoop(char*, char*);
 int SendSync(const char *msg, size_t len);
+
+void CloseSyncSocket();
 #endif

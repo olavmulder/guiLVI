@@ -1,7 +1,14 @@
 #include "../include/socket.h"
 #include <pthread.h>
+
+typedef struct _client_socket
+{
+   int socket_fd;
+   int lvi_id;
+}Client_socket;
+
 static int opt = true;  
-static int master_socket , addrlen , new_socket , client_socket[10] , 
+static int master_socket , addrlen , new_socket , 
       max_clients = MAX_CLIENTS , activity, i , sd;  
 static int max_sd;  
 static fd_set readfds; 
@@ -12,8 +19,9 @@ int clientSyncSocketNumber = -1;
 static int client_fd;
 struct sockaddr_in client_addr;
 char ownAddr_[20];
-sem_t mutex;
 
+
+Client_socket client_socket[10] = {0};
 
 void* waitT()
 {
@@ -22,13 +30,11 @@ void* waitT()
 //server tcp/ip functions
 int _ServerInitTCP_IP_Multi(char* ownAddr)
 {
-   sem_init(&mutex, 0,1);
-
    strcpy(ownAddr_, ownAddr);
    //initialise all client_socket[] to 0 so not checked 
    for (i = 0; i < max_clients; i++)  
    {  
-      client_socket[i] = 0;  
+      client_socket[i].socket_fd = 0;  
    }  
             
    //create a master socket 
@@ -96,17 +102,14 @@ int _HandleIncommingConnection()
             \n" , new_socket , inet_ntoa(server_addr.sin_addr) , ntohs
             (server_addr.sin_port));  
       
-      /*if( send(new_socket, "hoi", strlen("hoi"), 0) != strlen("hoi") )  
-      {  
-            perror("send");  
-      } */
       //add new socket to array of sockets 
       for (i = 0; i < max_clients; i++)  
       {  
          //if position is empty 
-         if( client_socket[i] == 0 )  
+         if( client_socket[i].socket_fd == 0 )  
          {  
-            client_socket[i] = new_socket;  
+            client_socket[i].socket_fd = new_socket;
+
             printf("Adding to list of sockets as %d\n" , i);          
             break;  
          }  
@@ -127,7 +130,7 @@ void _HandleSocket()
    for ( i = 0 ; i < max_clients ; i++)  
    {  
       //socket descriptor 
-      sd = client_socket[i];  
+      sd = client_socket[i].socket_fd;  
             
       //if valid socket descriptor then add to read list 
       if(sd > 0)  
@@ -137,15 +140,12 @@ void _HandleSocket()
       if(sd > max_sd)  
       max_sd = sd;  
    }  
-   //printf("%s end", __func__);
-   fflush(stdout);
+
 }
 void _GetSocketActivity()
 {
    //wait for an activity on one of the sockets , timeout is NULL , 
    //so wait indefinitely 
-   //printf("%s", __func__);
-   fflush(stdout);
    struct timeval tv = {.tv_sec = 0, .tv_usec =50};
    activity = select( max_sd + 1 , &readfds , NULL , NULL , &tv);  
 
@@ -153,13 +153,23 @@ void _GetSocketActivity()
    {  
       printf("select error");  
    }  
-
+}
+//close sync client & reset values
+void CloseSyncSocket()
+{
+   if(clientSyncSocketNumber >= 0)
+   {
+      if(client_socket[clientSyncSocketNumber].socket_fd > 0)
+      {
+         close(client_socket[clientSyncSocketNumber].socket_fd);
+         client_socket[clientSyncSocketNumber].socket_fd = 0;
+         client_socket[clientSyncSocketNumber].lvi_id = -1;
+         clientSyncSocketNumber  = -1;
+      }
+   }
 }
 void _HandleActivity(int i)
 {
-
-   //printf("%s", __func__);
-   fflush(stdout);
    char buffer[1025];  //data buffer of 1K 
    //Check if it was for closing , and also read the 
    //incoming message 
@@ -174,14 +184,12 @@ void _HandleActivity(int i)
       fflush(stdout);
       //Close the socket and mark as 0 in list for reuse 
       close( sd );  
-      client_socket[i] = 0;  
+      client_socket[i].socket_fd = 0; 
    }  
             
    //send message back
    else 
    {  
-      //printf("received on server\n");
-      //fflush(stdout);
       getpeername(sd , (struct sockaddr*)&server_addr , \
       (socklen_t*)&addrlen);  
       if(strcmp (inet_ntoa(server_addr.sin_addr) , ownAddr_ ) == 0)
@@ -191,26 +199,23 @@ void _HandleActivity(int i)
       }
       int res;
       mesh_data ret;
-      //printf("received,ip %s , port %d; %s\n",
-      //      inet_ntoa(server_addr.sin_addr) , ntohs(server_addr.sin_port), buffer);
-      //fflush(stdout);
-      //sem_wait(&mutex);
-         res = HandleIncomingData(&ret, buffer, strlen(buffer));
-      //sem_post(&mutex);
+    
+      res = HandleIncomingData(&ret, buffer, strlen(buffer));
       if(res == 1)
       {
-         //printf("received sync init\n");
+         printf("received sync init\n");// comes from cliet other pc
          fflush(stdout);
          clientSyncSocketNumber = i;
-         //init send
-         //sleep(1);
-         //SendCopyData();
+
+         char* buf = SendCopyData();
+         SendSync(buf, strlen(buf));
+         free(buf);
       }
       else if(res == 0)
       {
          if(ret.cmd == CMD_SYNC)
             updateFlag = 1;
-
+        
          //SendToLvi
          char buf[2000];
          //only return when the CMD type expects a return msg(utils.h)
@@ -218,17 +223,14 @@ void _HandleActivity(int i)
          {
             _MakeMsgLvi(&ret, buf, sizeof(buf));
             send(sd, buf, strlen(buf), MSG_CONFIRM);
-         }
-         
+         }  
       }
-      
       if(res < 0)
       {
          printf("%s;error handleIncomingdata: %d\n", __func__, res);
          return;
       }
    }
-  
 }
 
 int ServerLoopTCP_IP_MULTI(char* ownAddr)
@@ -246,7 +248,7 @@ int ServerLoopTCP_IP_MULTI(char* ownAddr)
       //else its some IO operation on some other socket
       for (i = 0; i < max_clients; i++)  
       {  
-         sd = client_socket[i];  
+         sd = client_socket[i].socket_fd;  
                   
          if (FD_ISSET( sd , &readfds))  
          {  
@@ -263,7 +265,6 @@ int ServerLoopTCP_IP_MULTI(char* ownAddr)
 bool _ClientInit(char* ownAddr, char* serverAddr){
    int status;
    int opt = 1;
-   //printf("client init");
    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       printf("\n Socket creation error \n");
       return false;
@@ -275,12 +276,7 @@ bool _ClientInit(char* ownAddr, char* serverAddr){
       perror("setsockopt");
       return false;
    }
-   /*if (setsockopt(connection_fd, SOL_SOCKET, SO_RCVTIMEO
-                  , &tv,
-                  sizeof(tv))) {
-      perror("setsockopt 2");
-      return -1;
-   }*/
+  
    // Set up client address
    struct sockaddr_in client_address;
    memset(&client_address, 0, sizeof(client_address));
@@ -304,11 +300,6 @@ bool _ClientInit(char* ownAddr, char* serverAddr){
    server_address.sin_family = AF_INET;
    server_address.sin_port = htons(PORT); //Port number
    server_address.sin_addr.s_addr = inet_addr(serverAddr);
-   /*char* serverAddr = "192.168.2.103";
-   if (inet_pton(AF_INET, serverAddr, &(server_address.sin_addr)) <= 0) {
-      perror("Invalid address/Address not supported\n");
-      exit(1);
-   }*/
 
    if ((status
       = connect(client_fd, (struct sockaddr*)&server_address,
@@ -321,7 +312,6 @@ bool _ClientInit(char* ownAddr, char* serverAddr){
    printf("init as Client, to %s: %d\n", serverAddr, PORT);
    fflush(stdout);
    InitMsg();
-   //AskCopyData();
    return true;
 }
 
@@ -331,30 +321,29 @@ int SendSync(const char *msg, size_t len)
    //printf("%s, send sync %s\n", __func__, msg);
    //if(_type_sock){
       //#ifdef C
+
       if(clientSyncSocketNumber == -1)
       {
          if(client_fd == 0)return -1;
          res =  send(client_fd, msg, len+1, MSG_CONFIRM);
-         //printf("%s, send cleint_fd res: %ld\n", __func__,res);
+         if(res <=0)
+         {
+            printf("%s, send cleint_fd res: %ld\n", __func__,res);
+            #ifdef C
+            _ClientInit(ownAddr_,SERVER_IP[0]);
+            #endif
+         }
       }
       else
       {
-      //#else
-         res =  send(client_socket[clientSyncSocketNumber], msg, len+1, MSG_CONFIRM);
-         //printf("%s, send client_socket[%d] res: %ld\n", __func__,clientSyncSocketNumber,res);
+         res =  send(client_socket[clientSyncSocketNumber].socket_fd, msg, len+1, MSG_CONFIRM);
+         if(res <= 0)
+            printf("%s, send client_socket[%d] res: %ld\n", __func__,clientSyncSocketNumber,res);
       }
-      //#endif
-   //}
-   /*else
-   {
-      res =  send(client_socket[clientSyncSocketNumber], msg, len, 0);
-      printf("%s, type socket false;res: %ld", __func__,res);
 
-   }*/
    if(res <= 0)
    {
       fprintf(stderr, "%s;res: %ld\n", __func__,res);
-      //while(_ClientInit(port_) != true)close(client_fd);
    }
    fflush(stdout);
 
@@ -376,25 +365,20 @@ void ClientLoop(char* ownAddr, char* serverAddr)
    {  
       valread = -1;
       valread = read(client_fd, buffer_rx, BUF_RX_SIZE);
-      //valread = recv(client_fd, buffer_rx, BUF_RX_SIZE, MSG_DONTWAIT);
       if(valread > 0)
       {
-         //printf("CLIENT RECEIVE\n");
-         //printf("buffer: %s", buffer_rx);
+        
          mesh_data r;
-         //sem_wait(&mutex);
-            int res = HandleIncomingData(&r, buffer_rx, strlen(buffer_rx));
-            if(r.cmd == CMD_SYNC)
-               updateFlag = 1;
-         //sem_wait(&mutex);
+         int res = HandleIncomingData(&r, buffer_rx, strlen(buffer_rx));
+         if(r.cmd == CMD_SYNC)
+            updateFlag = 1;
          
-         //updateFlag = 1;
+         
          if(res < 0){
             fprintf(stderr, "HandleIncomingData error %d\n", res);
-            //char buf[50];
-            //snprintf(buf, 50, "{\n\"error\":%d\n}", res);
-            //send(client_fd, buf, strlen(buf), MSG_CONFIRM);
-         }else
+           
+         }
+         else
             memset(buffer_rx, 0, BUF_RX_SIZE);
       }
       pthread_t wait;

@@ -11,4 +11,6 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip);
 
 extern int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, double temp,
                             bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
+
+extern void CloseSyncSocket();
 #endif

@@ -17,5 +17,5 @@ $(TARGET): $(SRC_LIST)
 	export LD_LIBRARY_PATH=/usr/local/lib
 	$(CC) $(FLAGS) -o $@ $^ $(LIBS)
 clean:
-	rm main *.o
+	rm main 
 

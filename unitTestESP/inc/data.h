@@ -5,16 +5,22 @@
 
 #include "libs/cJSON.h"
 #include "libs/cJSON_Utils.h"
-#include "utils.h"
+#include "heartbeat.h"
 
 extern char* hostnameServer;
-extern const char* nameID;
 extern const char* nameGenState;
 extern const char* nameVoltageState;
-extern const char* nameMAC;
 extern const char* nameTemp;
-extern const char* nameCMD;
 
+extern const char* nameMAC;
+extern const char* nameID;
+extern const char* nameCMD;
+extern const char* namePort;
+extern const char* nameIP;
+
+extern const char* nameIsAlive;
+extern const char* nameServerCount;
+extern const char* nameServerType;
 extern volatile bool coapStarted;
 extern volatile bool coapInitDone;
 
@@ -32,4 +38,5 @@ int MakeServerCountMsg(char* msg, size_t len, uint8_t serverCount, uint8_t serve
 int ReceiveClient(CMD cmd, char* data);
 
 extern void HeartbeatHandler(uint8_t id, strip_t*);
+extern void RestartTimer(timer_t timerid);
 #endif

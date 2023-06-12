@@ -7,47 +7,6 @@ volatile int have_response = 0;
 mesh_data nodes[200];
 static int syncServerID = -1;
 
-/*
-int _ServerSendToLvi(char* buffer_rx, size_t valread, int i)
-{
-        int ret = -1;
-        char bufferReturn[500];
-        //printf("received: %s", buffer_rx);
-        //if received process incoming data in ReadDataCallback func.
-        mesh_data r = _ReceiveFromLvi((const char*)buffer_rx, valread+1, i);
-        if(r.cmd == CMD_SEND_ERR || r.cmd == CMD_HEARTBEAT){
-                printf("RECEIVED CMD_SEND_ERR || cmd-heartbeat\n");
-                goto end;
-        }
-        if(r.id > (int)(sizeof(list)/sizeof(DataList))) 
-        {
-                goto end;
-        }
-
-        r.voltageState = list[r.id].voltageState;
-        r.closeState = list[r.id].closeState;
-        r.temp = list[r.id].temp;
-
-        if(_MakeMsgLvi(&r, bufferReturn, sizeof(bufferReturn)) == 0)
-        {
-                //printf("data to send:%s\n", bufferReturn);
-                fflush(stdout);
-                if (send(sd, bufferReturn, strlen(bufferReturn), 0) > 0)
-                        ret = 0;
-                else 
-                        ret = -1;
-                
-        }else{
-                //TODO send function to send data again or something.
-                printf("error make msg lvi");
-                ret = -1;
-        }
-        end:
-        //reset buffer
-        memset(buffer_rx, '\0', BUF_RX_SIZE);
-        return ret;
-        
-}*/
 void message_handler(
                 coap_resource_t* rec,
                 coap_session_t*s, 
@@ -59,15 +18,23 @@ void message_handler(
         size_t len;
         uint8_t*data;
         coap_get_data(received, &len, (const uint8_t**)&data);
-        //printf("data in %s\n", (char*)data);
         char retDataString[1000];
         //coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
         mesh_data r;
         HandleIncomingData(&r, (char*)data, len+1);
-        //printf("%s: r.cmd = %d\n", __func__, r.cmd);
-
+        if(r.cmd == CMD_HEARTBEAT)
+        {
+                r.cmd = CMD_HEARTBEAT_CONFIRM;
+                memcpy(r.mac, "aa:bb:cc", sizeof(r.mac));
+                r.id = 255;
+                memcpy(r.ip, ownAddr_, sizeof(r.ip));
+                r.port = 8080;
+                _MakeMsgLvi(&r, retDataString, sizeof(retDataString));
+                coap_add_data(response, strlen(retDataString),
+                                (const uint8_t *)retDataString);
+        }
         //only make return msg when cmd == init , hearbeat or to_client
-        if(is_CMD_a_Return_Msg(r.cmd))
+        else if(is_CMD_a_Return_Msg(r.cmd))
         {
 
                 if(_MakeMsgLvi(&r, retDataString, sizeof(retDataString))  < 0)
@@ -76,7 +43,6 @@ void message_handler(
                 }
                 coap_add_data(response, strlen(retDataString),
                                 (const uint8_t *)retDataString);
-                printf("%s: return: %s\n", __func__, retDataString);
                 fflush(stdout);
         }
         end:

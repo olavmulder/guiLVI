@@ -12,13 +12,14 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-//#define C
+#define C
 
 /*
 temerature updates every 500 ms
 dropdown updtes evere 10ms
 */
-
+#define AMOUNT_SERVER_ADDRS 2
+extern const char *SERVER_IP[AMOUNT_SERVER_ADDRS]; //server ip's,
 
 typedef struct __DataList
 {
@@ -31,8 +32,8 @@ typedef struct __DataList
 
 typedef enum _CMD{
     CMD_ERROR, CMD_INIT_VALID, CMD_INIT_INVALID, CMD_INIT_SEND,
-    CMD_TO_CLIENT, CMD_TO_SERVER, CMD_HEARTBEAT, CMD_SEND_ERR, CMD_SEND_BROADCAST,
-    CMD_SYNC, CMD_SYNC_INIT
+    CMD_TO_CLIENT, CMD_TO_SERVER, CMD_HEARTBEAT, CMD_HEARTBEAT_CONFIRM, CMD_SEND_ERR, 
+    CMD_SET_SERVER_NUMBER, CMD_SEND_BROADCAST, CMD_SYNC, CMD_SYNC_INIT
 }CMD;
 
 
