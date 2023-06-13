@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-#define C
+//#define C
 
 /*
 temerature updates every 500 ms
@@ -20,6 +20,10 @@ dropdown updtes evere 10ms
 */
 #define AMOUNT_SERVER_ADDRS 2
 extern const char *SERVER_IP[AMOUNT_SERVER_ADDRS]; //server ip's,
+
+typedef enum{
+  Err = -1, R = 0, G, Y
+}ClosingState;
 
 typedef struct __DataList
 {
@@ -58,6 +62,19 @@ typedef struct
     char ip[20];
     bool init;    
 }init_t;
+
+typedef struct _sync_data
+{
+    int id;
+    int8_t voltageState;
+    int8_t closeState;
+    double temp;
+    bool active;
+    bool uVolt;
+    bool uClose;
+    bool uTemp;
+    bool uActive;
+}sync_data;
 extern DataList list[LIST_SIZE];
 
 bool is_CMD_a_Return_Msg(CMD cmd);

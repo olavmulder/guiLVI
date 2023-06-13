@@ -52,8 +52,7 @@ extern volatile bool isCompleted;
 
 int _cJSON_ErrorHandling(cJSON *obj);
 
-int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, double temp,
-                            bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
+int MakeChangeLog(sync_data *data_to_sync, size_t len);
 
 
 char* SendCopyData();

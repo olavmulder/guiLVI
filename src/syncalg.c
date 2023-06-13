@@ -26,38 +26,47 @@ int _HandleSync(cJSON* objPtr, int id)
     cJSON *jsonCloseState = NULL;
     cJSON *jsonTemp = NULL;
     cJSON *jsonActive = NULL;
+    cJSON *jsonID = NULL;
 
-    jsonVoltageState = cJSON_GetObjectItemCaseSensitive(objPtr, nameVoltageState);
-    jsonCloseState = cJSON_GetObjectItemCaseSensitive(objPtr, nameCloseState);
-    jsonTemp = cJSON_GetObjectItemCaseSensitive(objPtr, nameTemp);
-    jsonActive = cJSON_GetObjectItemCaseSensitive(objPtr, nameActive);
-
-    bool uVolt = false, uTemp = false, uClose = false, uActive = false;
-
-    if(cJSON_IsNumber(jsonVoltageState))
-    { 
-        newData.voltageState = (int8_t)jsonVoltageState->valueint;
-        uVolt = true;
-    }
-    if(cJSON_IsNumber(jsonTemp)) 
+    cJSON *cjson_array = cJSON_GetObjectItemCaseSensitive(objPtr, "array");
+    cJSON *sync = NULL;
+    cJSON_ArrayForEach(sync, cjson_array)
     {
-        newData.temp = jsonTemp->valuedouble;
-        uTemp = true;
+        jsonID = cJSON_GetObjectItemCaseSensitive(sync, nameID);
+        jsonVoltageState = cJSON_GetObjectItemCaseSensitive(sync, nameVoltageState);
+        jsonCloseState = cJSON_GetObjectItemCaseSensitive(sync, nameCloseState);
+        jsonTemp = cJSON_GetObjectItemCaseSensitive(sync, nameTemp);
+        jsonActive = cJSON_GetObjectItemCaseSensitive(sync, nameActive);
+        bool uVolt = false, uTemp = false, uClose = false, uActive = false;
+        if(cJSON_IsNumber(jsonVoltageState))
+        { 
+            newData.voltageState = (int8_t)jsonVoltageState->valueint;
+            uVolt = true;
+        }
+        if(cJSON_IsNumber(jsonTemp)) 
+        {
+            newData.temp = jsonTemp->valuedouble;
+            uTemp = true;
+        }
+        if(cJSON_IsNumber(jsonCloseState) ) 
+        {
+            newData.closeState = (int8_t)jsonCloseState->valueint;
+            uClose = true;
+        }
+        if(cJSON_IsBool(jsonActive)) 
+        {
+            newData.active = jsonActive->valueint;
+            uActive = true;
+        }
+        if(cJSON_IsNumber(jsonID))
+        {
+            newData.id = jsonID->valueint;
+        }
+        _ChangeData(&newData, uVolt, uClose, uTemp, uActive);
     }
-    if(cJSON_IsNumber(jsonCloseState) ) 
-    {
-        newData.closeState = (int8_t)jsonCloseState->valueint;
-        uClose = true;
-    }
-    if(cJSON_IsBool(jsonActive)) 
-    {
-        newData.active = jsonActive->valueint;
-        uActive = true;
-    }
-    newData.id = id;
     fflush(stdout);
     //change received data in array list
-    return _ChangeData(&newData, uVolt, uClose, uTemp, uActive);
+    return 0;
 }
 int _ReceiveChangeLog(const char* const msg)
 {   
@@ -151,93 +160,110 @@ int ReadSyncCallBack(const char* msg, size_t len)
  * @param uActive 
  * @return int -1 on error, 0 on OK
  */
-int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, double temp,
-                            bool active, bool uVolt, bool uClose, bool uTemp, bool uActive)
+int MakeChangeLog(sync_data *data_to_sync, size_t len)
 {
     
     DataList data;
-    if(uVolt || uClose || uTemp || uActive)
+    syncCounter++;
+    cJSON *changeMsg = cJSON_CreateObject();
+    
+    //if(id > highestID)highestID = id;
+    //TODO change
+    if(cJSON_AddNumberToObject(changeMsg, nameID, 255) == NULL)
     {
-        syncCounter++;
-        cJSON *changeMsg = cJSON_CreateObject();
+        cJSON_Delete(changeMsg);
+        return -1;
+    }
+    if(cJSON_AddNumberToObject(changeMsg, nameCMD, CMD_SYNC) == NULL)
+    {
+        cJSON_Delete(changeMsg);
+        return -1;
+    }
+    if(cJSON_AddNumberToObject(changeMsg, nameCounter, syncCounter) == NULL)
+    {
         
-        if(id > highestID)highestID = id;
+        cJSON_Delete(changeMsg);
+        return -1;
+    }
+    cJSON* array = cJSON_CreateArray();
+    if(array == NULL)
+    {
+        cJSON_Delete(changeMsg);
+        return -1; 
+    }
+    cJSON_AddItemToObject(changeMsg, "array", array);
+    for(uint8_t i = 0; i < len; i++)
+    {
         
-        if(cJSON_AddNumberToObject(changeMsg, nameID, id) == NULL)
+        cJSON* sync = cJSON_CreateObject();
+        if(sync == NULL)
         {
-            cJSON_Delete(changeMsg);
             return -1;
         }
-        if(cJSON_AddNumberToObject(changeMsg, nameCMD, CMD_SYNC) == NULL)
+        cJSON_AddItemToArray(array, sync);
+        //add id
+        data.id = data_to_sync[i].id;
+        cJSON* cjson_id = cJSON_CreateNumber(data_to_sync[i].id);
+        if(cjson_id != NULL)
         {
-            cJSON_Delete(changeMsg);
-            return -1;
+            cJSON_AddItemToObject(sync, nameID, cjson_id);
         }
-        if(cJSON_AddNumberToObject(changeMsg, nameCounter, syncCounter) == NULL)
+        //if uvolt -> add volt to array
+        if(data_to_sync[i].uVolt)
         {
-            
-            cJSON_Delete(changeMsg);
-            return -1;
-        }
-
-        data.id = id;
-        if(uVolt)
-        {
-            data.voltageState = voltageState;
-            if(cJSON_AddNumberToObject(changeMsg, nameVoltageState, voltageState) == NULL)
+            data.voltageState = data_to_sync[i].voltageState;
+            cJSON* cjson_voltage  = cJSON_CreateNumber(data_to_sync[i].voltageState);
+            if(cjson_voltage != NULL)
             {
-                
-                cJSON_Delete(changeMsg);
-                return -1;
+                cJSON_AddItemToObject(sync, nameVoltageState, cjson_voltage);
             }
         }        
-        if(uClose)
+        if(data_to_sync[i].uClose)
         {
-            data.closeState = closeState;
+            data.closeState = data_to_sync[i].closeState;
 
-            if(cJSON_AddNumberToObject(changeMsg, nameCloseState, closeState) == NULL)
+            cJSON* cjson_close  = cJSON_CreateNumber(data_to_sync[i].closeState);
+            if(cjson_close != NULL)
             {
-                cJSON_Delete(changeMsg);
-                return -1;
+                cJSON_AddItemToObject(sync, nameCloseState, cjson_close);
             }
         }
-        if(uTemp)
+        if(data_to_sync[i].uTemp)
         {
-            data.temp = temp;
-            if(cJSON_AddNumberToObject(changeMsg, nameTemp, temp) == NULL)
+            data.temp = data_to_sync[i].temp;
+            cJSON* cjson_temp  = cJSON_CreateNumber(data_to_sync[i].temp);
+            if(cjson_temp != NULL)
             {
-                cJSON_Delete(changeMsg);
-                return -1;
+                cJSON_AddItemToObject(sync, nameTemp, cjson_temp);
             }
         }
-        if(uActive)
+        if(data_to_sync[i].uActive)
         {
-            data.active = active;
-            if(cJSON_AddNumberToObject(changeMsg, nameActive, active) == NULL)
+            data.active = data_to_sync[i].active;
+            cJSON* cjson_active  = cJSON_CreateNumber(data_to_sync[i].active);
+            if(cjson_active != NULL)
             {
-                cJSON_Delete(changeMsg);
-                return -1;
+                cJSON_AddItemToObject(sync, nameActive, cjson_active);
             }
         }
 
-        if(_ChangeData(&data, uVolt, uClose, uTemp, uActive) < 0)
+        if(_ChangeData(&data, data_to_sync[i].uVolt, data_to_sync[i].uClose, 
+                        data_to_sync[i].uTemp, data_to_sync[i].uActive) < 0)
         {
             printf("%s: change data -1\n", __func__);
             fflush(stdout);
         }
-
-        char* str = cJSON_Print(changeMsg);
-        if(str == NULL){
-            fprintf(stderr, "failed to print changeMsg\n");
-            return -1;
-        }
-        int res = SendSync(str, strlen(str));
-        free(str);
-        return res;
     }
-    else{
+
+    char* str = cJSON_Print(changeMsg);
+    if(str == NULL){
+        fprintf(stderr, "failed to print changeMsg\n");
         return -1;
     }
+    printf("make msg result is:\n %s\n", str);
+    int res = SendSync(str, strlen(str));
+    free(str);
+    return res;
 }
 
 //give id of change and set value + bool value to actually change data
@@ -286,11 +312,15 @@ int _ChangeData(DataList *data, bool uVolt, bool uClose,
         {
             if(data->voltageState == 0 || data->voltageState == 1)
                 list[id].voltageState = data->voltageState;
+            printf("changed list[%d].closeState to: %d\n", id, list[id].closeState);
+            
         }
         if(uClose)
         {
             if(data->closeState >= -1 && data->closeState <= 2)
                 list[id].closeState = data->closeState;
+            printf("changed list[%d].closeState to: %d\n", id, list[id].closeState);
+
         }
         if(uTemp)
         {

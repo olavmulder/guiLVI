@@ -369,6 +369,7 @@ void ClientLoop(char* ownAddr, char* serverAddr)
       {
         
          mesh_data r;
+         
          int res = HandleIncomingData(&r, buffer_rx, strlen(buffer_rx));
          if(r.cmd == CMD_SYNC)
             updateFlag = 1;

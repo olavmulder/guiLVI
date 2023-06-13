@@ -201,8 +201,9 @@ mesh_data HandleSendErr(int id)
    mesh_data ret;
    //if current general state == Err,  make changelog to send
    if(id < (int)(sizeof(list)/sizeof(DataList))){
-      if(MakeChangeLog(id, 0,-1,0, false, false, 
-               true,false,false) != 0)
+      sync_data d = { .id = id, .closeState = -1, .uClose = true, .uTemp = false,
+                     .uActive = false, .uVolt = false};
+      if(MakeChangeLog(&d, 1) != 0)
       {
          fprintf(stderr, "Error in MakechangeLog\n");
       }
@@ -241,8 +242,9 @@ int HandleClientData(mesh_data *ret, cJSON* objPtr)
    if(ret->id < (int)(sizeof(list)/sizeof(DataList))){
       if(list[ret->id].temp != jsonTemp->valuedouble)
       {
-         if(MakeChangeLog(ret->id, 0,0,jsonTemp->valuedouble, false, 
-                  false, false,true,false ) <= 0)
+         sync_data d = {.id = ret->id, .temp = jsonTemp->valuedouble, .uTemp = true,
+                        .uActive = false, .uClose = false, .uVolt = false};
+         if(MakeChangeLog(&d, 1) <= 0)
          {
             fprintf(stderr, "Error in MakechangeLog\n");
             fflush(stderr);

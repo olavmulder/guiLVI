@@ -27,7 +27,6 @@ struct _CanvasItem {
   GtkWidget *dropdownClose;
   GtkWidget *dropdownVoltage;
 
-  State state;
   guint id;
   double r;
   double angle;
@@ -533,105 +532,51 @@ bool CallbackTemperature(gpointer data)
   return G_SOURCE_CONTINUE;
 }
 //get periodically status from dropdown and set closeState in datalist  
-//
+//only for voltate state NOW!!!
 bool CallbackDrowDown(gpointer data)
 {
 
   bool changeVolt = false, changeClose = false;
   static unsigned int max_id = 0;
   static bool isSet = false;
-  static int8_t *lastSelectValuesClose;
-  static int8_t *lastSelectValuesVolt;
-
-  unsigned int id = CANVAS_ITEM(data)->id;
-
-  //make static dynamic allocted array
-  if(max_id < id)
-  {
-    max_id = id;
-  }
-  if(!isSet)
-  {
-    lastSelectValuesClose = (int8_t*)malloc(sizeof(int8_t) * (max_id+1));
-    lastSelectValuesVolt = (int8_t*)malloc(sizeof(int8_t) * (max_id+1));
-
-    isSet = true;
-  }
-  else{
-    lastSelectValuesClose = realloc(lastSelectValuesClose, sizeof(int8_t) * (max_id+1));
-    lastSelectValuesVolt = realloc(lastSelectValuesVolt, sizeof(int8_t) * (max_id+1));
-  }
-
+  static bool lastVoltageStates[AMOUNT_NODES] = {false};
+  static int8_t lastCloseStates[AMOUNT_NODES] = {-1};
 
   GdkRGBA color;
+  unsigned int id = CANVAS_ITEM(data)->id;
 
-  int8_t tempClose = (int8_t)gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose))-1;  
-  int8_t tempVolt = (int8_t)gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));  
+  //set close dropdown depending on list value
+    //if get_select != list[id].closeState ->  makechangelog(update list)
+  /*int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose)); 
+  if(temp != lastCloseStates[id]) // list != lastselected one
+  {
+    sync_data d = { .id = id, .uClose = true, .closeState = temp-1,
+                    .uActive = false, .uTemp = false, .uVolt = false};
+    MakeChangeLog(&d, 1);
+    lastCloseStates[id] = temp;
+  }*/
   
-  //if the selected one is others than the last selected one
-  //closeing state
-  if(tempClose != lastSelectValuesClose[id])
-  {
-    lastSelectValuesClose[id] = tempClose;
-    list[id].closeState = tempClose;
-    gdk_rgba_parse(&color, colorLVI[tempClose+1]);//+1 because of black state at index 0 
-    set_color(CANVAS_ITEM(data), &color);
-    changeClose = true;
-  }
-  //closestate has changed through sync or send from a device, so change select value
-  else if(tempClose != list[id].closeState)
-  {
-    if(list[id].closeState >= -1 && list[id].closeState <= 2)
-    {
-      tempClose = list[id].closeState;
-      gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)tempClose+1);
-      lastSelectValuesClose[id] = list[id].closeState;
-      gdk_rgba_parse(&color, colorLVI[tempClose+1]);
-      set_color(CANVAS_ITEM(data), &color);
-    }
-  }
-
-  //voltage state
-  //if the selected one is others than the last selected one
-  if(tempVolt != lastSelectValuesVolt[id])
-  {
-    lastSelectValuesVolt[id] = tempVolt;
-    list[id].voltageState = tempVolt;
-    changeVolt = true;
-
-  }
-  //voltage state has changed through sync, so change select value
-  else if(tempVolt != list[id].voltageState)
-  {
-    
-    if(list[id].voltageState >= 0 && list[id].voltageState <= 1)
-    {
-      tempVolt = list[id].voltageState;
-      lastSelectValuesVolt[id] = list[id].voltageState;
-      gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage),(unsigned int)tempVolt);
-    }
-  }
+  //always set dropdown to listvalue..
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)list[id].closeState+1);
+  gdk_rgba_parse(&color, colorLVI[list[id].closeState+1]);
+  set_color(CANVAS_ITEM(data), &color);
   
+  //update voltagestate in list and make a changelog if it has changed.
+  int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));
+  if(temp != lastVoltageStates[id])
+  {
+    sync_data d = { .id = id, .uVolt = true, .voltageState = temp,
+                    .uActive = false, .uTemp = false, .uClose = false};
+    MakeChangeLog(&d, 1);
+    lastVoltageStates[id] = temp;
+  }
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage),(unsigned int)list[id].voltageState);
+
+  
+
   if(firstTimeCallBack[id] == false)
     firstTimeCallBack[id]=true;
-  else
-  {
-    if(changeClose && changeVolt)
-    {
-      printf("A\n");
-      MakeChangeLog(id,tempVolt,tempClose,0,false, true, true, false, false);
-    }
-    else if(changeClose && !changeVolt)
-    {
-      printf("B\n");
-      MakeChangeLog(id,0,tempClose,0,false, false, true, false, false);
-    }
-    else if(!changeClose && changeVolt)
-    {
-      printf("C\n");
-      MakeChangeLog(id,tempVolt,0,0,false, true, false, false, false);
-    }
-  }
+  
   if(!canvasInitDone)
   {
     for(uint8_t i = 0 ; i < AMOUNT_NODES; i++)
@@ -642,68 +587,181 @@ bool CallbackDrowDown(gpointer data)
     canvasInitDone = true;
     g_print("canvas init done\n");
   }
-  
   return G_SOURCE_CONTINUE;
-
 }
-
+bool isActive[3]  = {false, false ,false};
+//handle the closing stutes depending on buttons states
 void ButtonCallback(GtkToggleButton *button, gpointer user_data)
 {
+  /*
+  z = hoog 3,2,1 & 0 + x + y
+  y = middel 5 & 4 + x
+  x = laag 6 & 7
+  */
+  int res;
   gboolean active = gtk_toggle_button_get_active(button);
+  sync_data d[AMOUNT_NODES];
+  uint8_t len = 0;
   switch((int)user_data)
-  {
-    case 0:
+  { 
+    case 2: //z state, is active so all node yellow
       if(active)
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
-
+          g_print("z state active\n");
+          isActive[2] = true;
+          for(uint8_t i = 0; i < AMOUNT_NODES; i++)
+          {
+            d[len].id = i;
+            d[len].closeState = Y;
+            d[len].uVolt = false;
+            d[len].uClose = true;
+            d[len].uTemp = false;
+            d[len].uActive = false;
+            len++;
+          }
       }
       else
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)1+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)1+1);
-
+        isActive[2] = false;
+        for(uint8_t i = 0; i < 4; i++)///set all high node's (Z nodes) to green
+        {
+          d[len].id = i;
+          d[len].closeState = G;
+          d[len].uClose = true;
+          d[len].uActive = false;
+          d[len].uTemp = false;
+          d[len].uVolt = false;
+          len++;
+        }
+        if(isActive[1] == false) //y is false so 5,4 can set to green
+        {
+          for(uint8_t i = 4; i < 6; i++)
+          {
+            d[len].id = i;
+            d[len].closeState = G;
+            d[len].uClose = true;
+            d[len].uActive = false;
+            d[len].uTemp = false;
+            d[len].uVolt = false;
+            len++;
+          }
+          if(isActive[0] == false) // x is false so 7,6 can set to green
+          {
+            for(uint8_t i = 6; i < 8; i++)
+            {
+              d[len].id = i;
+              d[len].closeState = G;
+              d[len].uClose = true;
+              d[len].uActive = false;
+              d[len].uTemp = false;
+              d[len].uVolt = false;
+              len++;
+            }
+          }
+        }
       }
       break;
-    case 1:
-      if(active)
+    
+    case 1: //y state 5,4, (x: 6,7) 
+      if(active) // 5,4 to Y is 6 & 7 not yet yellow, set yellow.
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[3])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[4])->dropdownClose),(unsigned int)2+1);
-
+          isActive[1] = true;
+          for(uint8_t i = 4 ; i < 6; i++)
+          {
+            d[len].id = i;
+            d[len].closeState = Y;
+            d[len].uClose = true;
+            d[len].uActive = false;
+            d[len].uTemp = false;
+            d[len].uVolt = false;
+            len++;
+          }
+          
+          if(isActive[0] == false)//x is not active change 6,7 to y
+          {
+            for(uint8_t i = 6 ; i < 8; i++)
+            {
+              d[len].id = i;
+              d[len].closeState = Y;
+              d[len].uClose = true;
+              d[len].uActive = false;
+              d[len].uTemp = false;
+              d[len].uVolt = false;
+              len++;
+            }
+          }
       }
-      else
+      else // y state off, check if z is off. 
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)1+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)1+1);
+        isActive[1] = false;
 
+        if(isActive[2] == false) // z is false so 5,4 change to green
+        {
+          for(uint8_t i = 4; i < 6; i++)
+          {
+            d[len].id = i;
+            d[len].closeState = G;
+            d[len].uClose = true;
+            d[len].uActive = false;
+            d[len].uTemp = false;
+            d[len].uVolt = false;
+            len++;
+          }
+          if(isActive[0] == false) // is x is false, than 6,7 can be changed to green.
+          {
+            for(uint8_t i = 6 ; i < 8; i++)
+            {
+              d[len].id = i;
+              d[len].closeState = G;
+              d[len].uClose = true;
+              d[len].uActive = false;
+              d[len].uTemp = false;
+              d[len].uVolt = false;
+              len++;
+            }
+          }
+        }
       }
       break;
-    case 2:
+    case 0: // X state, only set X state
       if(active)
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[1])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[2])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[3])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[4])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[5])->dropdownClose),(unsigned int)2+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[6])->dropdownClose),(unsigned int)2+1);
-
+        isActive[0] = true;
+        for(uint8_t i = 6; i < 8; i++)
+        {
+          d[len].id = i;
+          d[len].closeState = Y;
+          d[len].uClose = true;
+          d[len].uActive = false;
+          d[len].uTemp = false;
+          d[len].uVolt = false;
+          len++;
+        }
       }
       else
       {
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[5])->dropdownClose),(unsigned int)1+1);
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(item[6])->dropdownClose),(unsigned int)1+1);
-        
+        isActive[0] = false;
+        if(isActive[1] == false && isActive[2] == false)//only is y & z is false change to green
+        {
+          for(uint8_t i = 6 ; i < 8; i++)
+          {
+            d[len].id = i;
+            d[len].closeState = G;
+            d[len].uClose = true;
+            d[len].uActive = false;
+            d[len].uTemp = false;
+            d[len].uVolt = false;
+            len++;
+          }
+        }
       }
+
       break;
     default:
       break;
   };
-
+  res = MakeChangeLog(d, len);
+  g_print("res button callback %d\n", res);
 }
 void XYZ_Button(GtkWidget** buttonX, GtkWidget** buttonY, GtkWidget** buttonZ)
 {
@@ -713,7 +771,7 @@ void XYZ_Button(GtkWidget** buttonX, GtkWidget** buttonY, GtkWidget** buttonZ)
   *buttonZ = gtk_toggle_button_new_with_label("Z");
   g_signal_connect(*buttonX, "clicked", G_CALLBACK(ButtonCallback), (void*)0);
   g_signal_connect(*buttonY, "clicked", G_CALLBACK(ButtonCallback), (void*)1);
-    g_signal_connect(*buttonZ, "clicked", G_CALLBACK(ButtonCallback), (void*)2);
+  g_signal_connect(*buttonZ, "clicked", G_CALLBACK(ButtonCallback), (void*)2);
   //Apply CSS styling to the button
   gtk_widget_add_css_class(*buttonX, "custom-button");
   gtk_widget_add_css_class(*buttonY, "custom-button");
@@ -721,8 +779,6 @@ void XYZ_Button(GtkWidget** buttonX, GtkWidget** buttonY, GtkWidget** buttonZ)
   gtk_widget_set_size_request(*buttonX, 20, 20);
   gtk_widget_set_size_request(*buttonY, 20, 20);
   gtk_widget_set_size_request(*buttonZ, 20, 20);
-
-
 }
 static GtkWidget *window = NULL;
 
@@ -784,7 +840,7 @@ static void do_dnd (GtkApplication *app, gpointer user_data)
           gtk_fixed_put (GTK_FIXED (canvas), item[i], x, y);
           apply_transform (CANVAS_ITEM (item[i]));
 
-            if( i % 2 == 0 && i != 0)
+            if( i % 2 != 0)
             {
               y += 150;
               x -= 75;

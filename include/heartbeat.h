@@ -9,8 +9,7 @@ void SetAlive(Node*, bool isAlive);
 void RestartTimer(timer_t timerid);
 void HeartbeatHandler(uint8_t id, strip_t* childsStrip);
 
-extern int MakeChangeLog(unsigned int id, int8_t voltageState, int8_t closeState, double temp,
-                            bool active, bool uVolt, bool uClose, bool uTemp, bool uActive);
+extern int MakeChangeLog(sync_data *data_to_sync, size_t len);
 
 extern void CloseSyncSocket();
 #endif

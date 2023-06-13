@@ -62,7 +62,9 @@ void SetAlive(Node* node, bool isAlive)
    node->isAlive = isAlive;
    if(!isAlive)
    {
-      MakeChangeLog(node->id, 0, -1, 0, false,false, true, false, false);
+      sync_data d = {.id = node->id, .closeState = -1, .uClose = true, .uTemp = false,
+                     .uActive = false, .uVolt = false};
+      MakeChangeLog(&d, 1);
       //list[node->id].closeState = -1;
    }
 }
