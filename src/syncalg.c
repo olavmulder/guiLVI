@@ -246,7 +246,8 @@ int MakeChangeLog(sync_data *data_to_sync, size_t len)
                 cJSON_AddItemToObject(sync, nameActive, cjson_active);
             }
         }
-
+        printf("change bools: %d, %d, %d, %d",data_to_sync[i].uVolt, data_to_sync[i].uClose, 
+                        data_to_sync[i].uTemp, data_to_sync[i].uActive);
         if(_ChangeData(&data, data_to_sync[i].uVolt, data_to_sync[i].uClose, 
                         data_to_sync[i].uTemp, data_to_sync[i].uActive) < 0)
         {
@@ -260,7 +261,6 @@ int MakeChangeLog(sync_data *data_to_sync, size_t len)
         fprintf(stderr, "failed to print changeMsg\n");
         return -1;
     }
-    printf("make msg result is:\n %s\n", str);
     int res = SendSync(str, strlen(str));
     free(str);
     return res;
@@ -462,6 +462,15 @@ int ReceiveCopyData(cJSON *objPtr, cJSON*jsonCounter)
     }while(!go);
     fflush(stdout);
     cJSON*jsonArray = cJSON_GetObjectItemCaseSensitive(objPtr, nameArray);
+    //if onw syccounter is as big or bigger, than send a copy back and discard 
+    //the received data.
+    if(syncCounter >= (uint64_t)jsonCounter->valueint)
+    {
+        char* buf = SendCopyData();
+        SendSync(buf, strlen(buf));
+        free(buf);
+        return -1;
+    }
     //update syncounter variable
     syncCounter = (uint64_t)jsonCounter->valueint;
     printf("synccounter: %ld\n", syncCounter);

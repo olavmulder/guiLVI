@@ -547,14 +547,14 @@ bool CallbackDrowDown(gpointer data)
 
   //set close dropdown depending on list value
     //if get_select != list[id].closeState ->  makechangelog(update list)
-  /*int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose)); 
+  int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose)); 
   if(temp != lastCloseStates[id]) // list != lastselected one
   {
     sync_data d = { .id = id, .uClose = true, .closeState = temp-1,
                     .uActive = false, .uTemp = false, .uVolt = false};
     MakeChangeLog(&d, 1);
     lastCloseStates[id] = temp;
-  }*/
+  }
   
   //always set dropdown to listvalue..
   gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)list[id].closeState+1);
@@ -562,7 +562,7 @@ bool CallbackDrowDown(gpointer data)
   set_color(CANVAS_ITEM(data), &color);
   
   //update voltagestate in list and make a changelog if it has changed.
-  int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));
+  temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));
   if(temp != lastVoltageStates[id])
   {
     sync_data d = { .id = id, .uVolt = true, .voltageState = temp,

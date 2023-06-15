@@ -40,6 +40,26 @@ int FindID(int id)
     }
    return -1;
 }
+strip_t* RemoveFromStrip(strip_t* strip, int id)
+{
+    for(uint8_t i = 0; i < strip->lenChildArr; i++)
+    {
+        if(strip->childArr[i]->id == id)
+        {
+            //remove
+            for(uint8_t j = i; j < strip->lenChildArr - 1; j++)
+            {
+                timer_delete(strip->childArr[i]->timerid);
+                memcpy(strip->childArr[i], strip->childArr[i + 1], sizeof(Node));
+
+            }
+            free(strip->childArr[strip->lenChildArr-1]);
+            strip->lenChildArr -= 1;
+            return strip;
+        }
+    }
+    return strip;
+}
 /**
  * @brief add node to node strip when it isn't there already
  * , and init timer
@@ -72,7 +92,7 @@ strip_t* AddNodeToStrip(strip_t* strip, Node* n)
         InitTimer(strip->childArr[strip->lenChildArr-1]);
 
     }
-    else{
+    /*else{
         //if incoming node is true and in my strip it is not alive, set it as alive
         if(n->isAlive == true)
         {
@@ -85,7 +105,7 @@ strip_t* AddNodeToStrip(strip_t* strip, Node* n)
                 }
             }
         }
-    }
+    }*/
     return strip;
 }
 /**

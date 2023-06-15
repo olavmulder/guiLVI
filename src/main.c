@@ -28,17 +28,19 @@ void *HeartbeatTask(void *vargp)
     while(1)
     {
         sleep(5);
-        if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
+        if(monitoring_head != NULL)
         {
-            printf("%s, make string heartbeat error\n", __func__);
+            if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
+            {
+                printf("%s, make string heartbeat error\n", __func__);
+            }        
+            int res = SendSync(tx_buf, strlen(tx_buf));
+            if(res <= 0)
+            {
+                printf("%s; send error\n", __func__);
+            }
+            fflush(stdout);
         }
-
-        int res = SendSync(tx_buf, strlen(tx_buf));
-        if(res <= 0)
-        {
-            printf("%s; send error\n", __func__);
-        }
-        fflush(stdout);
     }
 }
 void *ServerTask(void *vargp)
@@ -71,7 +73,7 @@ int main(int argc, char* argv[])
     pthread_create(&server, NULL, ServerTask, c.ownAddr);
     pthread_create(&client, NULL, ClientTask,(void*)&c);
     pthread_create(&coap, NULL, LviTaskCOAP, c.ownAddr);
-    pthread_create(&heart, NULL, HeartbeatTask, c.ownAddr);
+    //pthread_create(&heart, NULL, HeartbeatTask, c.ownAddr);
 
     #ifdef C
     pthread_join(client, NULL);
@@ -79,5 +81,31 @@ int main(int argc, char* argv[])
     pthread_join(guiTask, NULL);
     pthread_join(server, NULL);
     pthread_join(coap, NULL);
-    pthread_join(heart, NULL);
+    //pthread_join(heart, NULL);
+    
+
+}
+
+void testDeteteStrip()
+{
+    static int init = 0;
+    if (init == 0)
+    {
+        monitoring_head = malloc(sizeof(strip_t));
+        monitoring_head->childArr = (Node **)malloc(sizeof(Node *));
+        // monitoring_head->childArr[0] =(Node*)malloc(sizeof(Node));
+        monitoring_head->lenChildArr = 0;
+        init = 1;
+    }
+    Node a = {.id = 0, .isAlive = true};
+    monitoring_head = AddNodeToStrip(monitoring_head, &a);
+    Node b = {.id = 1, .isAlive = true};
+    monitoring_head = AddNodeToStrip(monitoring_head, &b);
+    Node c = {.id = 2, .isAlive = true};
+    monitoring_head = AddNodeToStrip(monitoring_head, &c);
+    printf("list len: %d\n", monitoring_head->lenChildArr);
+    monitoring_head = RemoveFromStrip(monitoring_head, 1);
+    monitoring_head = RemoveFromStrip(monitoring_head, 1);
+    monitoring_head = AddNodeToStrip(monitoring_head, &b);
+    DisplayMonitoringString();
 }

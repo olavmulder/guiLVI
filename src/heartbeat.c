@@ -15,14 +15,16 @@ void TimerHandler(int sig, siginfo_t *si, void *uc)
    data->timeouts ++;
    if( (data->id == SERVER_ID1 || data->id == SERVER_ID2) && data->timeouts >= 3)
    {
+      
       //CloseSyncSocket();
-      printf("closed socket sync client\n");
+      //printf("closed socket sync client\n");
       fflush(stdout);
       data->timeouts = 0;
    }
-   printf("timer addr %p\n", data);
    RestartTimer(data->timerid); 
    SetAlive(data, false);
+   //remove
+   //RemoveFromStrip(monitoring_head, data->id);
 }
 
 void InitTimer(Node* node)
@@ -76,6 +78,7 @@ void RestartTimer(timer_t timerid)
    its.it_interval.tv_sec = 0;
    its.it_interval.tv_nsec = 0;
    timer_settime(timerid, 0, &its, NULL);
+   printf("restart timer\n");
 }
 /**
  * @brief called when CMD_HEARTBEAT is received,   if counter == 0 add id.
@@ -87,22 +90,63 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
 {
     //add all nodes from this child to own monitoring head
     //AddNodeToStrip checkt if id is already present
+   printf("id; %d; len = %d\n", id, childsStrip->lenChildArr);
    fflush(stdout);
    for(uint8_t i = 0; i < childsStrip->lenChildArr; i++)
       monitoring_head = AddNodeToStrip(monitoring_head, childsStrip->childArr[i]);
         
-    //if not empty search node in strip
-   for(uint8_t i = 0;i < monitoring_head->lenChildArr; i++)
+   //if list is from other server, check for every node in childlist
+   if(id == 255 || id == 254)
    {
-      //if found, restart timer and return
-      if(monitoring_head->childArr[i]->id == id)
+      for(uint8_t i = 0; i < monitoring_head->lenChildArr; i++)
       {
-         RestartTimer(monitoring_head->childArr[i]->timerid);
-         SetAlive(monitoring_head->childArr[i], true);
-         //monitoring_head->childArr[i]->isAlive = true
+         for(uint8_t j =0 ; j < childsStrip->lenChildArr; j++)
+         {
+            //check childs number in monitoring_head
+            if(childsStrip->childArr[j]->id == monitoring_head->childArr[i]->id)
+            {
+               //set isAlive & restart timer
+               monitoring_head->childArr[i]->isAlive = childsStrip->childArr[j]->isAlive;
+               //don't call SetAlive others make changelog, not needed
+               if(monitoring_head->childArr[i]->isAlive == false)
+                  list[monitoring_head->childArr[i]->id].closeState = Err;
+               printf("%s; id = %d, isAlive = %d", __func__, monitoring_head->childArr[i]->id,
+                  monitoring_head->childArr[i]->isAlive);
+               
+               RestartTimer(monitoring_head->childArr[i]->timerid);
+            }
+         }
       }
    }
+   else //normal node is sending, so only reset incoming id in monitoring list
+   {
+      for(uint8_t i = 0;i < monitoring_head->lenChildArr; i++)
+      {
+         if(monitoring_head->childArr[i]->id == id)
+         {
+            RestartTimer(monitoring_head->childArr[i]->timerid);
+            SetAlive(monitoring_head->childArr[i], true);
+            //monitoring_head->childArr[i]->isAlive = true
+         }
+      }
+      //send to other server
+      char tx_buf[2000];
+      fflush(stdout);
+      if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
+      {
+            printf("%s, make string heartbeat error\n", __func__);
+      }        
+      int res = SendSync(tx_buf, strlen(tx_buf));
+      if(res <= 0)
+      {
+         printf("%s; send error\n", __func__);
+      }
+      fflush(stdout);
+   }
+      
+    
+   
    //debug
-   //DisplayMonitoringString();
+   DisplayMonitoringString();
    return;
 }

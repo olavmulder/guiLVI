@@ -101,7 +101,7 @@ int _HandleIncommingConnection()
       printf("New connection , socket fd is %d , ip is : %s , port : %d\
             \n" , new_socket , inet_ntoa(server_addr.sin_addr) , ntohs
             (server_addr.sin_port));  
-      
+
       //add new socket to array of sockets 
       for (i = 0; i < max_clients; i++)  
       {  
@@ -155,6 +155,7 @@ void _GetSocketActivity()
    }  
 }
 //close sync client & reset values
+/*
 void CloseSyncSocket()
 {
    if(clientSyncSocketNumber >= 0)
@@ -167,7 +168,12 @@ void CloseSyncSocket()
          clientSyncSocketNumber  = -1;
       }
    }
-}
+   else //i'm a client
+   {
+      close(client_fd);
+      client_fd = -1;
+   }  
+}*/
 void _HandleActivity(int i)
 {
    char buffer[1025];  //data buffer of 1K 
@@ -208,6 +214,7 @@ void _HandleActivity(int i)
          clientSyncSocketNumber = i;
 
          char* buf = SendCopyData();
+         
          SendSync(buf, strlen(buf));
          free(buf);
       }
@@ -221,7 +228,11 @@ void _HandleActivity(int i)
          //only return when the CMD type expects a return msg(utils.h)
          if(is_CMD_a_Return_Msg(ret.cmd)) 
          {
+            if(ret.cmd == CMD_HEARTBEAT)
+               ret.cmd = CMD_HEARTBEAT_CONFIRM;
             _MakeMsgLvi(&ret, buf, sizeof(buf));
+            if(ret.cmd == CMD_HEARTBEAT_CONFIRM)
+               printf("confirm: %s\n", buf);
             send(sd, buf, strlen(buf), MSG_CONFIRM);
          }  
       }
@@ -265,6 +276,7 @@ int ServerLoopTCP_IP_MULTI(char* ownAddr)
 bool _ClientInit(char* ownAddr, char* serverAddr){
    int status;
    int opt = 1;
+   if(client_fd) close(client_fd);
    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       printf("\n Socket creation error \n");
       return false;
@@ -285,13 +297,13 @@ bool _ClientInit(char* ownAddr, char* serverAddr){
    //char* ownAddr = "192.168.178.25";
    if (inet_pton(AF_INET, ownAddr, &(client_address.sin_addr)) <= 0) {
       perror("Invalid address/Address not supported\n");
-      exit(1);
+      return false;
    }
 
    // Bind the socket to the client address
    if (bind(client_fd, (struct sockaddr*)&client_address, sizeof(client_address)) < 0) {
       perror("Bind failed");
-      exit(1);
+      return false;
    }
 
    // Set up server address
@@ -363,28 +375,26 @@ void ClientLoop(char* ownAddr, char* serverAddr)
    char buffer_rx[BUF_RX_SIZE];
    while(1)
    {  
-      valread = -1;
-      valread = read(client_fd, buffer_rx, BUF_RX_SIZE);
-      if(valread > 0)
+      if(client_fd == -1)_ClientInit(ownAddr, serverAddr);
+      else
       {
-        
-         mesh_data r;
-         
-         int res = HandleIncomingData(&r, buffer_rx, strlen(buffer_rx));
-         if(r.cmd == CMD_SYNC)
-            updateFlag = 1;
-         
-         
-         if(res < 0){
-            fprintf(stderr, "HandleIncomingData error %d\n", res);
-           
+         valread = -1;
+         valread = read(client_fd, buffer_rx, BUF_RX_SIZE);
+         if(valread > 0)
+         {
+            mesh_data r;  
+            int res = HandleIncomingData(&r, buffer_rx, strlen(buffer_rx));
+            if(r.cmd == CMD_SYNC)
+               updateFlag = 1;
+            if(res < 0){
+               fprintf(stderr, "HandleIncomingData error %d\n", res);
+            }
+            else
+               memset(buffer_rx, 0, BUF_RX_SIZE);
          }
-         else
-            memset(buffer_rx, 0, BUF_RX_SIZE);
       }
       pthread_t wait;
       pthread_create(&wait, NULL, waitT, NULL);
       pthread_join(wait, NULL);
    }
 }
-

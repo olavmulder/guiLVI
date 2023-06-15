@@ -22,7 +22,7 @@ void message_handler(
         //coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
         mesh_data r;
         HandleIncomingData(&r, (char*)data, len+1);
-        if(r.cmd == CMD_HEARTBEAT)
+        if(r.cmd == CMD_HEARTBEAT_CONFIRM)
         {
                 r.cmd = CMD_HEARTBEAT_CONFIRM;
                 memcpy(r.mac, "aa:bb:cc", sizeof(r.mac));

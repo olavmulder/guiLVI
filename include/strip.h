@@ -30,6 +30,8 @@ extern strip_t *monitoring_head;
 void UpdateDependancy(strip_t* root);
 Node* NewNode(int id, char* ip, char *mac, uint16_t port, bool isAlive);//data
 strip_t* AddNodeToStrip(strip_t* strip, Node* n);
+strip_t* RemoveFromStrip(strip_t* strip, int id);
+
 int FindID(int id);
 void DisplayMonitoringString();
 
