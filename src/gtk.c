@@ -2,8 +2,8 @@
 
 static const char* colorLVI[] = {"black", "red", "green", "yellow"};
 
-GtkWidget *item[AMOUNT_NODES];
-bool firstTimeCallBack[AMOUNT_NODES] = {false};
+GtkWidget *item[AMOUNT_NODES+1];
+bool firstTimeCallBack[AMOUNT_NODES+1] = {false};
 
 volatile bool canvasInitDone = false;
 
@@ -184,8 +184,6 @@ static void canvas_item_init (CanvasItem *it)
   gtk_fixed_put (GTK_FIXED (it->fixed), it->temperature, 10, 80);
   g_timeout_add(500,G_SOURCE_FUNC(CallbackTemperature), it);
 
-
-  
   gdk_rgba_parse (&rgba, colorLVI[0]);
   set_color (it, &rgba);
 
@@ -238,7 +236,6 @@ static void canvas_item_class_init (CanvasItemClass *class)
 static GtkWidget *canvas_item_new (void)
 {
   CanvasItem *item = g_object_new (canvas_item_get_type (), NULL);
-
   return GTK_WIDGET (item);
 }
 
@@ -535,53 +532,66 @@ bool CallbackTemperature(gpointer data)
 //only for voltate state NOW!!!
 bool CallbackDrowDown(gpointer data)
 {
-
-  bool changeVolt = false, changeClose = false;
-  static unsigned int max_id = 0;
-  static bool isSet = false;
-  static bool lastVoltageStates[AMOUNT_NODES] = {false};
-  static int8_t lastCloseStates[AMOUNT_NODES] = {-1};
+  static bool lastVoltageStates[AMOUNT_NODES+1] = {false};
+  static int8_t lastCloseStates[AMOUNT_NODES+1] = {-1};
 
   GdkRGBA color;
   unsigned int id = CANVAS_ITEM(data)->id;
-
+  unsigned int indexLast = id;
+  if(is_ID_Server(id,-1))indexLast = 8;//for index....
   //set close dropdown depending on list value
     //if get_select != list[id].closeState ->  makechangelog(update list)
   int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose)); 
-  if(temp != lastCloseStates[id]) // list != lastselected one
+  if(temp != lastCloseStates[indexLast]) // list != lastselected one
   {
     sync_data d = { .id = id, .uClose = true, .closeState = temp-1,
                     .uActive = false, .uTemp = false, .uVolt = false};
     MakeChangeLog(&d, 1);
-    lastCloseStates[id] = temp;
+    lastCloseStates[indexLast] = temp;
   }
   
+  //update list, depending on isAlive state in monitoring list.
+  //so it can set the right color
+  if(isHeartbeatInit())
+  {
+    for(uint8_t i = 0; i < monitoring_head->lenChildArr;i++)
+    {
+      if(is_ID_Server(monitoring_head->childArr[i]->id,-1))
+      {
+        if(monitoring_head->childArr[i]->isAlive == true)
+        {
+          list[monitoring_head->childArr[i]->id].closeState = G;
+        }else{
+          list[monitoring_head->childArr[i]->id].closeState = Err;  
+        }
+      }
+    }
+  }
   //always set dropdown to listvalue..
+
   gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)list[id].closeState+1);
   gdk_rgba_parse(&color, colorLVI[list[id].closeState+1]);
   set_color(CANVAS_ITEM(data), &color);
   
   //update voltagestate in list and make a changelog if it has changed.
   temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));
-  if(temp != lastVoltageStates[id])
+  if(temp != lastVoltageStates[indexLast])
   {
     sync_data d = { .id = id, .uVolt = true, .voltageState = temp,
                     .uActive = false, .uTemp = false, .uClose = false};
     MakeChangeLog(&d, 1);
-    lastVoltageStates[id] = temp;
+    lastVoltageStates[indexLast] = temp;
   }
   gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage),(unsigned int)list[id].voltageState);
 
-  
-
-  if(firstTimeCallBack[id] == false)
-    firstTimeCallBack[id]=true;
+  if(firstTimeCallBack[indexLast] == false)
+    firstTimeCallBack[indexLast]=true;
   
   if(!canvasInitDone)
   {
     for(uint8_t i = 0 ; i < AMOUNT_NODES; i++)
     {
-      if(firstTimeCallBack[id] == false)
+      if(firstTimeCallBack[indexLast] == false)
         return G_SOURCE_CONTINUE;
     }
     canvasInitDone = true;
@@ -760,6 +770,7 @@ void ButtonCallback(GtkToggleButton *button, gpointer user_data)
     default:
       break;
   };
+
   res = MakeChangeLog(d, len);
   g_print("res button callback %d\n", res);
 }
@@ -824,10 +835,6 @@ static void do_dnd (GtkApplication *app, gpointer user_data)
       gtk_style_context_add_provider_for_display(gdk_display_get_default(),GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
       gtk_style_context_add_provider_for_display(gdk_display_get_default(),GTK_STYLE_PROVIDER (provider),  GTK_STYLE_PROVIDER_PRIORITY_USER);
       
-      //box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-      //box2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-
-
       canvas = canvas_new ();
       n_items = 0;
 
@@ -848,6 +855,20 @@ static void do_dnd (GtkApplication *app, gpointer user_data)
             else 
               x += 75;
       }
+      item[8] = canvas_item_new ();
+      while(othersID() == -1)continue;
+      ((CanvasItem*)item[8])->id = othersID();
+
+      char *id = g_strdup_printf ("item%d",  ((CanvasItem*)item[8])->id);
+      g_print("%s", id);
+      gtk_widget_set_name (((CanvasItem*)item[8])->label,id);
+      char* text =  g_strdup_printf ("server:%d",  ((CanvasItem*)item[8])->id);
+      gtk_label_set_text(((CanvasItem*)item[8])->label, text);
+      g_free(text);
+      g_free(id);
+      gtk_fixed_put (GTK_FIXED (canvas), item[8], x, y);
+      apply_transform (CANVAS_ITEM ((CanvasItem*)item[8]));
+
       GtkWidget *overlay = gtk_overlay_new();
       GtkWidget *box_main = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
       // Load the background image

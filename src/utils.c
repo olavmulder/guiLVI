@@ -2,6 +2,15 @@
 #define SERVER_ID1 255
 #define SERVER_ID2 254
 
+int othersID()
+{
+   if(strlen(ownAddr_) == 0)return -1;
+
+   if(strcmp(ownAddr_, SERVER_IP[0]) == 0)return SERVER_ID2;
+   if(strcmp(ownAddr_, SERVER_IP[1]) == 0)return SERVER_ID1;
+   return -1;
+}
+
 int myID()
 {
    if(strlen(ownAddr_) == 0)return -1;

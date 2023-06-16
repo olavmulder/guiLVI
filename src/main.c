@@ -38,7 +38,7 @@ void *HeartbeatTask(void *vargp)
             {
                 printf("%s, make string heartbeat error\n", __func__);
             }    
-            printf("try to send hb task: %s\n", tx_buf);   
+            //printf("try to send hb task: %s\n", tx_buf);   
             int res = SendSync(tx_buf, strlen(tx_buf));
             if(res <= 0)
             {

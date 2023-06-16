@@ -1,8 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 #define DEBUG
-#define LIST_SIZE 1024
-#define AMOUNT_NODES 8
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,6 +18,8 @@ temerature updates every 500 ms
 dropdown updtes evere 10ms
 */
 #define AMOUNT_SERVER_ADDRS 2
+#define LIST_SIZE 1024
+#define AMOUNT_NODES 8
 
 typedef enum{
   Err = -1, R = 0, G, Y
@@ -82,5 +83,6 @@ extern const char *SERVER_IP[AMOUNT_SERVER_ADDRS]; //server ip's,
 
 bool is_CMD_a_Return_Msg(CMD cmd);
 bool is_ID_Server(int id, int id2);
+int othersID();
 int myID();
 #endif

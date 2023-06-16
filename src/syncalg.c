@@ -246,8 +246,8 @@ int MakeChangeLog(sync_data *data_to_sync, size_t len)
                 cJSON_AddItemToObject(sync, nameActive, cjson_active);
             }
         }
-        printf("change bools: %d, %d, %d, %d",data_to_sync[i].uVolt, data_to_sync[i].uClose, 
-                        data_to_sync[i].uTemp, data_to_sync[i].uActive);
+        //printf("change bools: %d, %d, %d, %d",data_to_sync[i].uVolt, data_to_sync[i].uClose, 
+        //               data_to_sync[i].uTemp, data_to_sync[i].uActive);
         if(_ChangeData(&data, data_to_sync[i].uVolt, data_to_sync[i].uClose, 
                         data_to_sync[i].uTemp, data_to_sync[i].uActive) < 0)
         {

@@ -29,7 +29,7 @@ void TimerHandler(int sig, siginfo_t *si, void *uc)
    printf("timer expired of id:%d\n",data->id);
    //increment time out before closing the socket
    data->timeouts ++;
-   if(is_ID_Server(data->id, -1) && data->timeouts >= 3)
+   if(is_ID_Server(data->id, -1) && data->timeouts >= 2)
    {
       CloseSyncSocket();
       fflush(stdout);
@@ -92,7 +92,7 @@ void RestartTimer(timer_t timerid)
    its.it_interval.tv_sec = 0;
    its.it_interval.tv_nsec = 0;
    timer_settime(timerid, 0, &its, NULL);
-   printf("restart timer\n");
+   //printf("restart timer\n");
 }
 /**
  * @brief called when CMD_HEARTBEAT is received,   if counter == 0 add id.
@@ -104,13 +104,13 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
 {
     //add all nodes from this child to own monitoring head
     //AddNodeToStrip checkt if id is already present
-   printf("id; %d; len = %d\n", id, childsStrip->lenChildArr);
+   //printf("id; %d; len = %d\n", id, childsStrip->lenChildArr);
    fflush(stdout);
    for(uint8_t i = 0; i < childsStrip->lenChildArr; i++)
       monitoring_head = AddNodeToStrip(monitoring_head, childsStrip->childArr[i]);
         
    //if list is from other server, check for every node in childlist
-   if(id == 255 || id == 254)
+   if(is_ID_Server(id, -1))
    {
       for(uint8_t i = 0; i < monitoring_head->lenChildArr; i++)
       {
@@ -124,8 +124,8 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
                //don't call SetAlive others make changelog, not needed
                if(monitoring_head->childArr[i]->isAlive == false)
                   list[monitoring_head->childArr[i]->id].closeState = Err;
-               printf("%s; id = %d, isAlive = %d", __func__, monitoring_head->childArr[i]->id,
-                  monitoring_head->childArr[i]->isAlive);
+               //printf("%s; id = %d, isAlive = %d", __func__, monitoring_head->childArr[i]->id,
+                  //monitoring_head->childArr[i]->isAlive);
                
                RestartTimer(monitoring_head->childArr[i]->timerid);
             }
@@ -157,6 +157,7 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
       }
       fflush(stdout);
    }
+   
       
     
    

@@ -42,7 +42,7 @@ extern volatile bool hasChanged;
 extern volatile bool updateFlag;
 
 extern DataList list[LIST_SIZE];
-extern bool firstTimeCallBack[AMOUNT_NODES];
+extern bool firstTimeCallBack[AMOUNT_NODES+1];
 extern unsigned int highestID;
 extern uint64_t syncCounter;
 
