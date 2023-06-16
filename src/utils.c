@@ -1,6 +1,15 @@
 #include "../include/utils.h"
 #define SERVER_ID1 255
 #define SERVER_ID2 254
+
+int myID()
+{
+   if(strlen(ownAddr_) == 0)return -1;
+   
+   if(strcmp(ownAddr_, SERVER_IP[0]) == 0)return SERVER_ID1;
+   if(strcmp(ownAddr_, SERVER_IP[1]) == 0)return SERVER_ID2;
+   return -1;
+}
 bool is_ID_Server(int id, int id2)
 {
    

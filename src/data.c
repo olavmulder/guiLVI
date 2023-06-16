@@ -361,10 +361,8 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
 int MakeMsgStringHeartbeat(char *msg, strip_t *dataStrip)
 {
    int idName;
-   if (strcmp(ownAddr_, SERVER_IP[0]) == 0)
-      idName = 255;
-   else
-      idName = 254;
+   idName = myID();
+   printf("%s; id name %d\n", __func__, idName);
    cJSON *obj = cJSON_CreateObject();
    cJSON *data;
    cJSON *node;
@@ -400,46 +398,50 @@ int MakeMsgStringHeartbeat(char *msg, strip_t *dataStrip)
       cJSON_AddItemToObject(obj, "array", data);
       for(uint8_t i = 0; i < dataStrip->lenChildArr; i++)
       {
-         node = cJSON_CreateObject();
-         if(node == NULL)
+         //skip when myID is a server
+         if(is_ID_Server(dataStrip->childArr[i]->id, -1) == false)
          {
-            goto end;
-         }
-         cJSON_AddItemToArray(data, node);
-         id = cJSON_CreateNumber(dataStrip->childArr[i]->id);
-         if (id == NULL)
-         {
-            goto end;
-         }
-         cJSON_AddItemToObject(node, nameID, id);
+            node = cJSON_CreateObject();
+            if(node == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToArray(data, node);
+            id = cJSON_CreateNumber(dataStrip->childArr[i]->id);
+            if (id == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToObject(node, nameID, id);
 
-         port = cJSON_CreateNumber(dataStrip->childArr[i]->port);
-         if (port == NULL)
-         {
-            goto end;
-         }
-         cJSON_AddItemToObject(node, namePort, port);
-         
-         ip = cJSON_CreateString(dataStrip->childArr[i]->ip_wifi);
-         if (ip == NULL)
-         {
-            goto end;
-         }
-         cJSON_AddItemToObject(node, nameIP, ip);
+            port = cJSON_CreateNumber(dataStrip->childArr[i]->port);
+            if (port == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToObject(node, namePort, port);
+            
+            ip = cJSON_CreateString(dataStrip->childArr[i]->ip_wifi);
+            if (ip == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToObject(node, nameIP, ip);
 
-         mac = cJSON_CreateString(dataStrip->childArr[i]->mac_wifi);
-         if (mac == NULL)
-         {
-            goto end;
-         }
-         cJSON_AddItemToObject(node, nameMAC, mac);
+            mac = cJSON_CreateString(dataStrip->childArr[i]->mac_wifi);
+            if (mac == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToObject(node, nameMAC, mac);
 
-         isAlive = cJSON_CreateNumber(dataStrip->childArr[i]->isAlive);
-         if (isAlive == NULL)
-         {
-            goto end;
+            isAlive = cJSON_CreateNumber(dataStrip->childArr[i]->isAlive);
+            if (isAlive == NULL)
+            {
+               goto end;
+            }
+            cJSON_AddItemToObject(node, nameIsAlive, isAlive);
          }
-         cJSON_AddItemToObject(node, nameIsAlive, isAlive);
       }
    }
    char *string = cJSON_Print(obj);

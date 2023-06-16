@@ -19,7 +19,6 @@ temerature updates every 500 ms
 dropdown updtes evere 10ms
 */
 #define AMOUNT_SERVER_ADDRS 2
-extern const char *SERVER_IP[AMOUNT_SERVER_ADDRS]; //server ip's,
 
 typedef enum{
   Err = -1, R = 0, G, Y
@@ -77,6 +76,11 @@ typedef struct _sync_data
 }sync_data;
 extern DataList list[LIST_SIZE];
 
+
+extern char ownAddr_[20];
+extern const char *SERVER_IP[AMOUNT_SERVER_ADDRS]; //server ip's,
+
 bool is_CMD_a_Return_Msg(CMD cmd);
 bool is_ID_Server(int id, int id2);
+int myID();
 #endif

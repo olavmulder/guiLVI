@@ -13,7 +13,7 @@ struct clientArg
 
 void test_is_ID_server();
 void test_heartbeat_init();
-
+void test_my_id();
 
 void *ClientTask(void* vargp)
 { 
@@ -32,7 +32,7 @@ void *HeartbeatTask(void *vargp)
     while(1)
     {
         sleep(5);
-        if(monitoring_head != NULL)
+        if(isHeartbeatInit())
         {
             if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
             {
@@ -62,7 +62,7 @@ void *LviTaskCOAP(void *vargp)
 int main(int argc, char* argv[])
 {
     // Unused argc, argv
-    /*(void) argc;
+    (void) argc;
     (void) argv;
     
     pthread_t client;
@@ -73,6 +73,8 @@ int main(int argc, char* argv[])
     struct clientArg c;
     strcpy(c.ownAddr, argv[2]);
     strcpy(c.serverAddr, argv[3]);
+    
+    HeartbeatInit();
 
     pthread_create(&guiTask, NULL, gui, argv[1]);
     pthread_create(&server, NULL, ServerTask, c.ownAddr);
@@ -86,9 +88,10 @@ int main(int argc, char* argv[])
     pthread_join(guiTask, NULL);
     pthread_join(server, NULL);
     pthread_join(coap, NULL);
-    pthread_join(heart, NULL);*/
+    pthread_join(heart, NULL);
+    test_my_id();
     //test_is_ID_server();
-    test_heartbeat_init();
+    //test_heartbeat_init();
 }
 
 void test_heartbeat_init()
@@ -100,6 +103,17 @@ void test_heartbeat_init()
     //is malloced
     assert(monitoring_head != NULL);
     printf("%s; completed\n", __func__);
+}
+void test_my_id()
+{
+    assert(myID() == -1);
+    strcpy(ownAddr_, SERVER_IP[0]);
+    assert(myID() == 255);
+    strcpy(ownAddr_, SERVER_IP[1]);
+    assert(myID() == 254);
+    strcpy(ownAddr_, "dd");
+    assert(myID() == -1);
+    printf("%s; completed\n", __func__);    
 }
 void test_is_ID_server()
 {
