@@ -20,11 +20,21 @@ void message_handler(
         coap_get_data(received, &len, (const uint8_t**)&data);
         char retDataString[1000];
         //coap_pdu_set_code(response, COAP_RESPONSE_CODE_CONTENT);
+        printf("coap received");
+        fflush(stdout);
         mesh_data r;
         HandleIncomingData(&r, (char*)data, len+1);
-        if(r.cmd == CMD_HEARTBEAT_CONFIRM)
+        if(r.cmd == CMD_HEARTBEAT)
         {
                 r.cmd = CMD_HEARTBEAT_CONFIRM;
+                _MakeMsgLvi(&r, retDataString, sizeof(retDataString));
+                if(r.cmd == CMD_HEARTBEAT_CONFIRM)
+                        printf("confirm: %s\n", retDataString);
+                coap_add_data(response, strlen(retDataString),
+                                (const uint8_t *)retDataString);
+        }
+        else if(r.cmd == CMD_HEARTBEAT_CONFIRM)
+        {
                 memcpy(r.mac, "aa:bb:cc", sizeof(r.mac));
                 r.id = 255;
                 memcpy(r.ip, ownAddr_, sizeof(r.ip));

@@ -271,14 +271,13 @@ int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
    // handle heartbeat...
    ret->cmd = CMD_HEARTBEAT;
    cJSON *jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);
-
    if (!(cJSON_IsNumber(jsonID)))
    {
       printf("%s:id is null", __func__);
       return -1;
    }
    else
-   {
+   { 
       cJSON *node = NULL;
       cJSON *data = NULL;
 

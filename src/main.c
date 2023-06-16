@@ -5,12 +5,16 @@
 volatile bool hasChanged;
 
 const char *SERVER_IP[AMOUNT_SERVER_ADDRS] = {"192.168.2.109","192.168.2.106"};//, "192.168.178.25", }; 
-
 struct clientArg
 {
     char ownAddr[20];
     char serverAddr[20];
 };
+
+void test_is_ID_server();
+
+
+
 void *ClientTask(void* vargp)
 { 
     #ifdef C
@@ -82,10 +86,25 @@ int main(int argc, char* argv[])
     pthread_join(server, NULL);
     pthread_join(coap, NULL);
     //pthread_join(heart, NULL);
+    //test_is_ID_server();
     
 
 }
+void test_is_ID_server()
+{
+    assert(is_ID_Server(255, 0) == true);
+    assert(is_ID_Server(254, 0) == true);
 
+    assert(is_ID_Server(254, -1) == true);
+    assert(is_ID_Server(255, -1) == true);
+        
+    assert(is_ID_Server(255, 254) == true);
+    assert(is_ID_Server(255, 255) == true);
+    assert(is_ID_Server(254, 254) == true);
+
+    assert(is_ID_Server(0, 1) == false);
+    printf("%s; completed\n", __func__);
+}
 void testDeteteStrip()
 {
     static int init = 0;

@@ -231,8 +231,8 @@ void _HandleActivity(int i)
             if(ret.cmd == CMD_HEARTBEAT)
                ret.cmd = CMD_HEARTBEAT_CONFIRM;
             _MakeMsgLvi(&ret, buf, sizeof(buf));
-            if(ret.cmd == CMD_HEARTBEAT_CONFIRM)
-               printf("confirm: %s\n", buf);
+            /*if(ret.cmd == CMD_HEARTBEAT_CONFIRM)
+               printf("confirm: %s\n", buf);*/
             send(sd, buf, strlen(buf), MSG_CONFIRM);
          }  
       }

@@ -2,8 +2,7 @@
 
 #define TIMER_INTERVAL_SEC 10
 #define TIMER_INTERVAL_NSEC 0
-#define SERVER_ID1 255
-#define SERVER_ID2 254
+
 
 strip_t *monitoring_head;
 
@@ -13,7 +12,7 @@ void TimerHandler(int sig, siginfo_t *si, void *uc)
    printf("timer expired of id:%d\n",data->id);
    //increment time out before closing the socket
    data->timeouts ++;
-   if( (data->id == SERVER_ID1 || data->id == SERVER_ID2) && data->timeouts >= 3)
+   if( is_ID_Server(data->id, -1) && data->timeouts >= 3)
    {
       
       //CloseSyncSocket();

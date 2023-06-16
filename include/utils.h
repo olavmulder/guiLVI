@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-//#define C
+#define C
 
 /*
 temerature updates every 500 ms
@@ -78,5 +78,5 @@ typedef struct _sync_data
 extern DataList list[LIST_SIZE];
 
 bool is_CMD_a_Return_Msg(CMD cmd);
-
+bool is_ID_Server(int id, int id2);
 #endif
