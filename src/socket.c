@@ -16,7 +16,7 @@ static struct sockaddr_in server_addr;
 volatile bool _type_sock;
 int port_;
 int clientSyncSocketNumber = -1;
-static int client_fd;
+static int client_fd = -1;
 struct sockaddr_in client_addr;
 char ownAddr_[20];
 
@@ -154,26 +154,29 @@ void _GetSocketActivity()
       printf("select error");  
    }  
 }
+
 //close sync client & reset values
-/*
 void CloseSyncSocket()
 {
-   if(clientSyncSocketNumber >= 0)
+   printf("%s\n",__func__);
+   if(clientSyncSocketNumber < 0)return;
+   
+   if(client_socket[clientSyncSocketNumber].socket_fd > 0)
    {
-      if(client_socket[clientSyncSocketNumber].socket_fd > 0)
-      {
-         close(client_socket[clientSyncSocketNumber].socket_fd);
-         client_socket[clientSyncSocketNumber].socket_fd = 0;
-         client_socket[clientSyncSocketNumber].lvi_id = -1;
-         clientSyncSocketNumber  = -1;
-      }
+      close(client_socket[clientSyncSocketNumber].socket_fd);
+      client_socket[clientSyncSocketNumber].socket_fd = 0;
+      client_socket[clientSyncSocketNumber].lvi_id = -1;
+      clientSyncSocketNumber  = -1;
+      printf("closed socket client_socket[clientSyncSocketNumber]\n");
+
    }
-   else //i'm a client
+   else if(client_fd > 0)//i'm a client
    {
       close(client_fd);
+      printf("closed socket client_fd\n");
       client_fd = -1;
    }  
-}*/
+}
 void _HandleActivity(int i)
 {
    char buffer[1025];  //data buffer of 1K 

@@ -259,15 +259,8 @@ int HandleClientData(mesh_data *ret, cJSON *objPtr)
 }
 int HandleHeartBeat(mesh_data *ret, cJSON *objPtr)
 {
-   static int init = 0;
-   if (init == 0)
-   {
-      monitoring_head = malloc(sizeof(strip_t));
-      monitoring_head->childArr = (Node **)malloc(sizeof(Node *));
-      // monitoring_head->childArr[0] =(Node*)malloc(sizeof(Node));
-      monitoring_head->lenChildArr = 0;
-      init = 1;
-   }
+   printf("%s\n", __func__);
+   if(! isHeartbeatInit()) HeartbeatInit();
    // handle heartbeat...
    ret->cmd = CMD_HEARTBEAT;
    cJSON *jsonID = cJSON_GetObjectItemCaseSensitive(objPtr, nameID);

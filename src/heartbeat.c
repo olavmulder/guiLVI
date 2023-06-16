@@ -5,18 +5,33 @@
 
 
 strip_t *monitoring_head;
-
+static isInit = false;
+bool isHeartbeatInit()
+{ 
+   return isInit;
+}
+bool HeartbeatInit()
+{
+   if (isInit == false)
+   {
+      monitoring_head = malloc(sizeof(strip_t));
+      monitoring_head->childArr = (Node **)malloc(sizeof(Node *));
+      // monitoring_head->childArr[0] =(Node*)malloc(sizeof(Node));
+      monitoring_head->lenChildArr = 0;
+      isInit = true;
+      return true;
+   }
+   return false;
+}
 void TimerHandler(int sig, siginfo_t *si, void *uc)
 {
    Node* data = (Node*)(si->si_value.sival_ptr);
    printf("timer expired of id:%d\n",data->id);
    //increment time out before closing the socket
    data->timeouts ++;
-   if( is_ID_Server(data->id, -1) && data->timeouts >= 3)
+   if(is_ID_Server(data->id, -1) && data->timeouts >= 3)
    {
-      
-      //CloseSyncSocket();
-      //printf("closed socket sync client\n");
+      CloseSyncSocket();
       fflush(stdout);
       data->timeouts = 0;
    }

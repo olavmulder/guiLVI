@@ -12,7 +12,7 @@ struct clientArg
 };
 
 void test_is_ID_server();
-
+void test_heartbeat_init();
 
 
 void *ClientTask(void* vargp)
@@ -37,7 +37,8 @@ void *HeartbeatTask(void *vargp)
             if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
             {
                 printf("%s, make string heartbeat error\n", __func__);
-            }        
+            }    
+            printf("try to send hb task: %s\n", tx_buf);   
             int res = SendSync(tx_buf, strlen(tx_buf));
             if(res <= 0)
             {
@@ -61,7 +62,7 @@ void *LviTaskCOAP(void *vargp)
 int main(int argc, char* argv[])
 {
     // Unused argc, argv
-    (void) argc;
+    /*(void) argc;
     (void) argv;
     
     pthread_t client;
@@ -77,7 +78,7 @@ int main(int argc, char* argv[])
     pthread_create(&server, NULL, ServerTask, c.ownAddr);
     pthread_create(&client, NULL, ClientTask,(void*)&c);
     pthread_create(&coap, NULL, LviTaskCOAP, c.ownAddr);
-    //pthread_create(&heart, NULL, HeartbeatTask, c.ownAddr);
+    pthread_create(&heart, NULL, HeartbeatTask, c.ownAddr);
 
     #ifdef C
     pthread_join(client, NULL);
@@ -85,10 +86,20 @@ int main(int argc, char* argv[])
     pthread_join(guiTask, NULL);
     pthread_join(server, NULL);
     pthread_join(coap, NULL);
-    //pthread_join(heart, NULL);
+    pthread_join(heart, NULL);*/
     //test_is_ID_server();
-    
+    test_heartbeat_init();
+}
 
+void test_heartbeat_init()
+{
+    assert(isHeartbeatInit() == false);
+    assert(HeartbeatInit() == true);
+    assert(isHeartbeatInit() == true);
+    assert(HeartbeatInit() == false);
+    //is malloced
+    assert(monitoring_head != NULL);
+    printf("%s; completed\n", __func__);
 }
 void test_is_ID_server()
 {

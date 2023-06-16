@@ -3,6 +3,8 @@
 
 #include "strip.h"
 
+bool isHeartbeatInit();
+bool HeartbeatInit();
 void InitTimer(Node* node);
 int FindTimedOutID(int id);
 void SetAlive(Node*, bool isAlive);
