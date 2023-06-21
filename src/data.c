@@ -122,6 +122,7 @@ int HandleIncomingData(mesh_data *ret, char *buffer, size_t len)
       case CMD_SYNC:
       case ASK_COPY_ID:
       case RECEIVE_COPY_ID:
+         while(!canvasInitDone)continue;
          res = ReadSyncCallBack(buffer, strlen(buffer));
          ret->cmd = CMD_SYNC;
          break;

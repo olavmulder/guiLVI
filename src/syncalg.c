@@ -312,14 +312,14 @@ int _ChangeData(DataList *data, bool uVolt, bool uClose,
         {
             if(data->voltageState == 0 || data->voltageState == 1)
                 list[id].voltageState = data->voltageState;
-            printf("changed list[%d].closeState to: %d\n", id, list[id].closeState);
+            printf("changed list[%d].voltage to: %d\n", id, list[id].voltageState);
             
         }
         if(uClose)
         {
             if(data->closeState >= -1 && data->closeState <= 2)
                 list[id].closeState = data->closeState;
-            printf("changed list[%d].closeState to: %d\n", id, list[id].closeState);
+            printf("changed list[%d].close to: %d\n", id, list[id].closeState);
 
         }
         if(uTemp)
@@ -397,7 +397,7 @@ char* SendCopyData()
         return NULL;
     }
     cJSON_AddItemToObject(data, nameArray, array);
-    for(uint16_t i = 0; i <= 7/*highestID*/;i++)
+    for(uint16_t i = 0; i < AMOUNT_NODES/*highestID*/;i++)
     {
         dList = cJSON_CreateObject();
         if(dList == NULL){
@@ -464,7 +464,7 @@ int ReceiveCopyData(cJSON *objPtr, cJSON*jsonCounter)
     cJSON*jsonArray = cJSON_GetObjectItemCaseSensitive(objPtr, nameArray);
     //if onw syccounter is as big or bigger, than send a copy back and discard 
     //the received data.
-    if(syncCounter >= (uint64_t)jsonCounter->valueint)
+    if(syncCounter > (uint64_t)jsonCounter->valueint)
     {
         char* buf = SendCopyData();
         SendSync(buf, strlen(buf));

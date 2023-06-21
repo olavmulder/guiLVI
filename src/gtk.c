@@ -533,7 +533,7 @@ bool CallbackTemperature(gpointer data)
 bool CallbackDrowDown(gpointer data)
 {
   static bool lastVoltageStates[AMOUNT_NODES+1] = {false};
-  static int8_t lastCloseStates[AMOUNT_NODES+1] = {-1};
+  static int8_t lastCloseStates[AMOUNT_NODES+1] = {0};
 
   GdkRGBA color;
   unsigned int id = CANVAS_ITEM(data)->id;
@@ -541,12 +541,19 @@ bool CallbackDrowDown(gpointer data)
   if(is_ID_Server(id,-1))indexLast = 8;//for index....
   //set close dropdown depending on list value
     //if get_select != list[id].closeState ->  makechangelog(update list)
+  
+  //always set dropdown to listvalue..
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)list[id].closeState+1);
+  gdk_rgba_parse(&color, colorLVI[list[id].closeState+1]);
+  set_color(CANVAS_ITEM(data), &color);
+ 
   int temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose)); 
   if(temp != lastCloseStates[indexLast]) // list != lastselected one
   {
     sync_data d = { .id = id, .uClose = true, .closeState = temp-1,
                     .uActive = false, .uTemp = false, .uVolt = false};
-    MakeChangeLog(&d, 1);
+    if(canvasInitDone)
+      MakeChangeLog(&d, 1);
     lastCloseStates[indexLast] = temp;
   }
   
@@ -567,11 +574,7 @@ bool CallbackDrowDown(gpointer data)
       }
     }
   }
-  //always set dropdown to listvalue..
-
-  gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownClose),(unsigned int)list[id].closeState+1);
-  gdk_rgba_parse(&color, colorLVI[list[id].closeState+1]);
-  set_color(CANVAS_ITEM(data), &color);
+  
   
   //update voltagestate in list and make a changelog if it has changed.
   temp = gtk_drop_down_get_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage));
@@ -579,19 +582,20 @@ bool CallbackDrowDown(gpointer data)
   {
     sync_data d = { .id = id, .uVolt = true, .voltageState = temp,
                     .uActive = false, .uTemp = false, .uClose = false};
-    MakeChangeLog(&d, 1);
+    if(canvasInitDone)
+      MakeChangeLog(&d, 1);
     lastVoltageStates[indexLast] = temp;
   }
   gtk_drop_down_set_selected(GTK_DROP_DOWN(CANVAS_ITEM(data)->dropdownVoltage),(unsigned int)list[id].voltageState);
-
   if(firstTimeCallBack[indexLast] == false)
     firstTimeCallBack[indexLast]=true;
   
+
   if(!canvasInitDone)
   {
-    for(uint8_t i = 0 ; i < AMOUNT_NODES; i++)
+    for(uint8_t i = 0; i < sizeof(firstTimeCallBack) / sizeof(bool); i++)
     {
-      if(firstTimeCallBack[indexLast] == false)
+      if(firstTimeCallBack[i] == false)
         return G_SOURCE_CONTINUE;
     }
     canvasInitDone = true;
