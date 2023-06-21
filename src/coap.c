@@ -80,19 +80,22 @@ int ServerLoop(char* ipAddrServer, char* port, char* serverName)
         coap_endpoint_t *endpoint = NULL;
 
         int result = EXIT_FAILURE;
-        coap_str_const_t *ruri = coap_make_str_const(serverName);
         coap_startup();
+        coap_str_const_t *ruri = coap_make_str_const(serverName);
         //resolve destination address where server should be sent 
         if(_CoapResolveAddress(ipAddrServer, port, &dst) < 0){
                 coap_log(LOG_CRIT, "failed to resolve address\n");
                 goto finish;
         }
+        printf("%s a", __func__);
         // create CoAP context and a client session 
         ctx = coap_new_context(NULL);
         if (!ctx || !(endpoint = coap_new_endpoint(ctx, &dst, COAP_PROTO_TCP))) {
                 coap_log(LOG_EMERG, "cannot initialize context\n");
                 goto finish;
         }
+        printf("%s b\n", __func__);
+
         coap_context_set_block_mode(ctx,
                 COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
         
@@ -101,6 +104,7 @@ int ServerLoop(char* ipAddrServer, char* port, char* serverName)
 
         coap_add_resource(ctx, resource);
         while (true) { coap_io_process(ctx, 3); }
+        printf("%s c\n", __func__);
 
         result = EXIT_SUCCESS;
         finish:

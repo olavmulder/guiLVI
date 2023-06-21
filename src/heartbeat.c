@@ -124,9 +124,8 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
                //don't call SetAlive others make changelog, not needed
                if(monitoring_head->childArr[i]->isAlive == false)
                   list[monitoring_head->childArr[i]->id].closeState = Err;
-               //printf("%s; id = %d, isAlive = %d", __func__, monitoring_head->childArr[i]->id,
+                  //printf("%s; id = %d, isAlive = %d", __func__, monitoring_head->childArr[i]->id,
                   //monitoring_head->childArr[i]->isAlive);
-               
                RestartTimer(monitoring_head->childArr[i]->timerid);
             }
          }
@@ -146,9 +145,11 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
       //send to other server
       char tx_buf[2000];
       fflush(stdout);
-      if(MakeMsgStringHeartbeat(tx_buf, monitoring_head) < 0)
+      
+      if(MakeMsgStringHeartbeat(tx_buf, childsStrip) < 0)
       {
-            printf("%s, make string heartbeat error\n", __func__);
+         printf("%s, make string heartbeat error\n", __func__);
+         return;
       }        
       int res = SendSync(tx_buf, strlen(tx_buf));
       if(res <= 0)
@@ -157,10 +158,6 @@ void HeartbeatHandler(uint8_t id, strip_t* childsStrip)
       }
       fflush(stdout);
    }
-   
-      
-    
-   
    //debug
    DisplayMonitoringString();
    return;

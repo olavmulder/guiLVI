@@ -1,15 +1,24 @@
-used github for cJSON: https://github.com/DaveGamble/cJSON
-used github for MQTT-C: https://github.com/LiamBindle/MQTT-C
+Gui voor de centrale bedienings positie
 
-https://github.com/eclipse/paho.mqtt.c/blob/master/src/samples/MQTTClient_publish.c
+INSTALL & USE:
+   set de define C in de utils.h file
+   run: make 
+   run: mv main client
+   haal de define C in de utils.h file weg
+   run: make 
+   run: mv main server
+   run: ./server a.org 'ip address 1' 'ip address 2'
+         -vb ./server a.org 192.168.2.109 192.168.2.106
+   run in andere terminal:
+         ./client b.org 'ip address 2' 'ip address 1'
+         -vb ./client b.org 192.168.2.106 192.168.2.109
+      NOTE: eerste parameter is naam van gui, wat anders moet zijn volgens de gtk library ,indien er twee applicaties op een dezelfde host wordt gerund. Tweede en derde parameter zijn de address, de eerste de eigen ip address tweede is de address van de andere server.
+      
 
-compile with: g++ -o test *.cpp *.c
-run with ./test
+Userd libraries:
+   - cJSON: https://github.com/DaveGamble/cJSON
+   - gtk4: https://www.gtk.org/docs/installations/linux/
+   - coap: https://github.com/obgm/libcoap
+    
 
-#TODO sendmsg function
-
-
-mosquitto -c /etc/mosquitto/mosquitto.conf -p 1883
-
-mosquitto_pub -h 192.168.2.103 -t ReceiveVoltStatus/1 -m "2"
- mosquitto_sub -h 127.0.0.1 -t sync -V mqttv31 -q 2
+Alleen getest op Linux Ubuntu 22.04

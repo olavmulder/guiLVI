@@ -11,7 +11,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-//#define C
+#define C
 
 /*
 temerature updates every 500 ms
